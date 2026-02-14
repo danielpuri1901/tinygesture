@@ -101,10 +101,24 @@ export default function FindPage() {
     setScreen("connected");
   }
 
-  function startTracking(sid: string) {
+  async function startTracking(sid: string) {
     if (!navigator.geolocation) {
       setError("Geolocation not supported by your browser");
       return;
+    }
+
+    // Fetch any locations already in the session (handles late joiners)
+    const { data: existing } = await supabase
+      .from("locations")
+      .select()
+      .eq("session_id", sid);
+    if (existing) {
+      for (const row of existing) {
+        if (row.user_token !== userToken.current) {
+          setTheirLocation({ lat: row.latitude, lon: row.longitude });
+          setConnected(true);
+        }
+      }
     }
 
     watchIdRef.current = navigator.geolocation.watchPosition(

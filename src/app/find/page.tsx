@@ -32,6 +32,7 @@ function getUserToken() {
 }
 
 function formatDistance(km: number) {
+  if (km < 0.01) return "Nearby";
   if (km < 1) return `${Math.round(km * 1000)} m`;
   return `${km.toFixed(1)} km`;
 }

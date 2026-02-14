@@ -37,6 +37,15 @@ function formatDistance(km: number) {
   return `${km.toFixed(1)} km`;
 }
 
+function calcBearing(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}
+
 export default function FindPage() {
   const [screen, setScreen] = useState<"home" | "connected">("home");
   const [code, setCode] = useState("");
@@ -47,6 +56,7 @@ export default function FindPage() {
   const [error, setError] = useState("");
   const [connected, setConnected] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [deviceHeading, setDeviceHeading] = useState<number | null>(null);
 
   const watchIdRef = useRef<number | null>(null);
   const userToken = useRef("");
@@ -65,7 +75,29 @@ export default function FindPage() {
   }, [myLocation, theirLocation]);
 
   useEffect(() => {
+    function handleOrientation(e: DeviceOrientationEvent) {
+      // webkitCompassHeading is iOS; alpha (inverted) works on Android
+      const heading =
+        (e as DeviceOrientationEvent & { webkitCompassHeading?: number })
+          .webkitCompassHeading ?? (e.alpha !== null ? (360 - e.alpha) % 360 : null);
+      if (heading !== null) setDeviceHeading(heading);
+    }
+
+    // iOS 13+ requires permission
+    const orient = DeviceOrientationEvent as unknown as {
+      requestPermission?: () => Promise<string>;
+    };
+    if (typeof orient.requestPermission === "function") {
+      orient.requestPermission().then((state) => {
+        if (state === "granted")
+          window.addEventListener("deviceorientationabsolute", handleOrientation, true);
+      });
+    } else {
+      window.addEventListener("deviceorientationabsolute", handleOrientation, true);
+    }
+
     return () => {
+      window.removeEventListener("deviceorientationabsolute", handleOrientation, true);
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
       }
@@ -248,6 +280,28 @@ export default function FindPage() {
           <span className="text-gray-400 text-sm">{copied ? "Copied!" : "Copy"}</span>
         </button>
       </div>
+
+      {/* Direction arrow */}
+      {myLocation && theirLocation && distance !== null && distance >= 0.01 && (
+        <div className="flex flex-col items-center gap-1">
+          <div
+            style={{
+              transform: `rotate(${
+                calcBearing(myLocation.lat, myLocation.lon, theirLocation.lat, theirLocation.lon) -
+                (deviceHeading ?? 0)
+              }deg)`,
+              transition: "transform 0.4s ease",
+            }}
+          >
+            <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+              <path d="M32 8L48 52H32H16L32 8Z" fill="#f43f5e" />
+            </svg>
+          </div>
+          <p className="text-xs text-gray-400">
+            {deviceHeading !== null ? "points toward them" : "points North toward them"}
+          </p>
+        </div>
+      )}
 
       {/* Distance */}
       <div className="w-full max-w-sm bg-white border border-gray-200 rounded-2xl p-8 shadow-sm text-center">

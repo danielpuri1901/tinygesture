@@ -190,14 +190,16 @@ export default function Home() {
   };
 
   // Handle Tikkie payment
-  const handleTikkieClick = async () => {
-    const gestureId = await trackClick("tikkie");
+  const handleTikkieClick = () => {
+    // Open link FIRST - must be synchronous for mobile browsers
     window.open("https://tikkie.me/pay/6i4f00j4kmf5pcsh1cg3", "_blank");
 
-    // Send email to recipient
-    if (gestureId) {
-      await sendEmail(gestureId);
-    }
+    // Track click and send email in background (don't await)
+    trackClick("tikkie").then((gestureId) => {
+      if (gestureId) {
+        sendEmail(gestureId);
+      }
+    });
 
     setFadeState('out');
     setTimeout(() => {

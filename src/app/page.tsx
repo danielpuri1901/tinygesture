@@ -232,7 +232,7 @@ export default function Home() {
 
         <div className={`transition-all duration-500 ${showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
           <p className="text-[14px] text-gray-500 mb-5 text-center leading-snug">
-            A €1 thing you send to people<br/>you care about way too much.
+            But for the people who sent a Tiny Gesture—<br/>you're gonna get way more than that. Stay tuned ;)
           </p>
 
           {/* Your email */}

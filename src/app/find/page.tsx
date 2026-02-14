@@ -1,7 +1,7 @@
 "use client";
 
 import { supabase } from "@/lib/supabase";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371;
@@ -52,7 +52,6 @@ export default function FindPage() {
   const [inputCode, setInputCode] = useState("");
   const [myLocation, setMyLocation] = useState<{ lat: number; lon: number } | null>(null);
   const [theirLocation, setTheirLocation] = useState<{ lat: number; lon: number } | null>(null);
-  const [distance, setDistance] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [connected, setConnected] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -66,13 +65,13 @@ export default function FindPage() {
     userToken.current = getUserToken();
   }, []);
 
-  useEffect(() => {
-    if (myLocation && theirLocation) {
-      setDistance(
-        haversineKm(myLocation.lat, myLocation.lon, theirLocation.lat, theirLocation.lon)
-      );
-    }
-  }, [myLocation, theirLocation]);
+  const distance = useMemo(
+    () =>
+      myLocation && theirLocation
+        ? haversineKm(myLocation.lat, myLocation.lon, theirLocation.lat, theirLocation.lon)
+        : null,
+    [myLocation, theirLocation]
+  );
 
   useEffect(() => {
     function handleOrientation(e: DeviceOrientationEvent) {
@@ -113,6 +112,8 @@ export default function FindPage() {
       .select()
       .single();
     if (err) { setError(err.message); return; }
+    // Register as participant
+    await supabase.from("session_participants").insert({ session_id: data.id, user_token: userToken.current });
     setCode(newCode);
     sessionIdRef.current = data.id;
     startTracking(data.id);
@@ -126,8 +127,21 @@ export default function FindPage() {
       .select()
       .eq("code", inputCode.trim().toUpperCase())
       .single();
-    console.log("joinSession result:", { data, err });
     if (err || !data) { setError(err?.message ?? "Session not found — check the code and try again"); return; }
+
+    // Check participant count — reject if someone else is already in
+    const { data: participants } = await supabase
+      .from("session_participants")
+      .select("user_token")
+      .eq("session_id", data.id)
+      .neq("user_token", userToken.current);
+    if (participants && participants.length >= 1) {
+      setError("This session is already full");
+      return;
+    }
+
+    // Register as participant
+    await supabase.from("session_participants").insert({ session_id: data.id, user_token: userToken.current });
     setCode(inputCode.trim().toUpperCase());
     sessionIdRef.current = data.id;
     startTracking(data.id);

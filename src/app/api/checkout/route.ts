@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
         },
       ],
       mode: "payment",
-      success_url: `${req.nextUrl.origin}/thanks`,
+      success_url: `${req.nextUrl.origin}/create`,
       cancel_url: `${req.nextUrl.origin}/`,
     });
 

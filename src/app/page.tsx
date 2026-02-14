@@ -3,6 +3,7 @@
 import { supabase } from "@/lib/supabase";
 import Image from "next/image";
 import { useEffect, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 
 // Types
 type JourneyStep = "intro" | "email" | "payment" | "confirmation";
@@ -93,6 +94,7 @@ const sanitizeInput = (input: string) => {
 };
 
 export default function Home() {
+  const router = useRouter();
   const [step, setStep] = useState<JourneyStep>("intro");
   const [recipientEmail, setRecipientEmail] = useState("");
   const [fadeState, setFadeState] = useState<'in' | 'out'>('in');
@@ -194,17 +196,13 @@ export default function Home() {
     // Open link FIRST - must be synchronous for mobile browsers
     window.open("https://tikkie.me/pay/6i4f00j4kmf5pcsh1cg3", "_blank");
 
-    // Track click and send email in background (don't await)
-    trackClick("tikkie").then((gestureId) => {
-      if (gestureId) {
-        sendEmail(gestureId);
-      }
-    });
+    // Track click (email sent after media upload on /create page)
+    trackClick("tikkie");
 
+    // Redirect to create page for media collection
     setFadeState('out');
     setTimeout(() => {
-      setStep("confirmation");
-      setFadeState('in');
+      router.push("/create");
     }, 500);
   };
 

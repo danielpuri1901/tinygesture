@@ -11,6 +11,10 @@ const anonymousPro = Anonymous_Pro({
 export const metadata: Metadata = {
   title: "A Tiny Gesture",
   description: "Send a tiny gesture to someone you love",
+  icons: {
+    icon: "/heart.png",
+    apple: "/heart.png",
+  },
 };
 
 export default function RootLayout({

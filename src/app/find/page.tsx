@@ -310,7 +310,9 @@ export default function FindPage() {
             <p className="text-6xl font-bold text-rose-500 mb-2">
               {formatDistance(distance)}
             </p>
-            <p className="text-gray-400 text-sm">apart from each other</p>
+            {distance >= 0.01 && (
+              <p className="text-gray-400 text-sm">apart from each other</p>
+            )}
           </>
         ) : (
           <p className="text-gray-400">

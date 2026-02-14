@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 
 const HeartParticle = ({ delay, left }: { delay: number; left: number }) => (
@@ -19,6 +19,7 @@ const HeartParticle = ({ delay, left }: { delay: number; left: number }) => (
 export default function Thanks() {
   const [copied, setCopied] = useState(false);
   const [particles, setParticles] = useState<{ delay: number; left: number }[]>([]);
+  const emailSent = useRef(false);
 
   useEffect(() => {
     const newParticles = Array.from({ length: 12 }, () => ({
@@ -26,6 +27,35 @@ export default function Thanks() {
       left: Math.random() * 100,
     }));
     setParticles(newParticles);
+
+    // Send email for Stripe payments (Tikkie sends on main page)
+    const sendEmailToRecipient = async () => {
+      if (emailSent.current) return;
+      emailSent.current = true;
+
+      const recipientEmail = localStorage.getItem('recipientEmail');
+      const gestureId = localStorage.getItem('gestureId');
+
+      if (recipientEmail && gestureId) {
+        try {
+          await fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              recipientEmail,
+              gestureId,
+            }),
+          });
+          // Clear localStorage after sending
+          localStorage.removeItem('recipientEmail');
+          localStorage.removeItem('gestureId');
+        } catch (e) {
+          console.error('Failed to send email:', e);
+        }
+      }
+    };
+
+    sendEmailToRecipient();
   }, []);
 
   const handleCopyLink = async () => {

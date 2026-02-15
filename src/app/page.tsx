@@ -6,7 +6,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 // Types
-type JourneyStep = "intro" | "email" | "payment" | "confirmation";
+type JourneyStep = "intro" | "email" | "name" | "payment" | "confirmation";
 
 // Apple logo
 const AppleLogo = () => (
@@ -106,6 +106,9 @@ export default function Home() {
   // Email state
   const [emailTypewriterDone, setEmailTypewriterDone] = useState(false);
 
+  // Name state
+  const [nameTypewriterDone, setNameTypewriterDone] = useState(false);
+
   // Payment state
   const [paymentTypewriterDone, setPaymentTypewriterDone] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -127,11 +130,20 @@ export default function Home() {
     }
   }, [typewriterDone, step]);
 
-  // Handle email submit
+  // Handle email submit - go to name step
   const handleEmailSubmit = () => {
-    if (!isValidEmail(recipientEmail) || !senderName.trim()) return;
-    // Store email and name for later use
+    if (!isValidEmail(recipientEmail)) return;
     localStorage.setItem('recipientEmail', recipientEmail);
+    setFadeState('out');
+    setTimeout(() => {
+      setStep("name");
+      setFadeState('in');
+    }, 500);
+  };
+
+  // Handle name submit - go to payment step
+  const handleNameSubmit = () => {
+    if (!senderName.trim()) return;
     localStorage.setItem('senderName', senderName.trim());
     setFadeState('out');
     setTimeout(() => {
@@ -327,30 +339,12 @@ export default function Home() {
             transition: 'opacity 0.5s ease',
           }}>
             <input
-              type="text"
-              value={senderName}
-              onChange={(e) => setSenderName(e.target.value)}
-              placeholder="Your name"
-              autoFocus
-              style={{
-                width: '100%',
-                padding: '12px 16px',
-                border: '1px solid #171717',
-                backgroundColor: 'transparent',
-                color: '#171717',
-                fontSize: 16,
-                outline: 'none',
-                boxSizing: 'border-box',
-                marginBottom: 12,
-                ...fontStyle,
-              }}
-            />
-            <input
               type="email"
               value={recipientEmail}
               onChange={(e) => setRecipientEmail(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleEmailSubmit()}
               placeholder="Their email"
+              autoFocus
               style={{
                 width: '100%',
                 padding: '12px 16px',
@@ -365,7 +359,7 @@ export default function Home() {
             />
             <button
               onClick={handleEmailSubmit}
-              disabled={!isValidEmail(recipientEmail) || !senderName.trim()}
+              disabled={!isValidEmail(recipientEmail)}
               style={{
                 marginTop: 16,
                 width: '100%',
@@ -374,8 +368,84 @@ export default function Home() {
                 backgroundColor: 'transparent',
                 color: '#171717',
                 fontSize: 16,
-                cursor: isValidEmail(recipientEmail) && senderName.trim() ? 'pointer' : 'not-allowed',
-                opacity: isValidEmail(recipientEmail) && senderName.trim() ? 1 : 0.3,
+                cursor: isValidEmail(recipientEmail) ? 'pointer' : 'not-allowed',
+                opacity: isValidEmail(recipientEmail) ? 1 : 0.3,
+                ...fontStyle,
+              }}
+            >
+              Continue
+            </button>
+          </div>
+
+          <SmallHeart />
+        </div>
+      )}
+
+      {/* NAME STEP */}
+      {step === "name" && (
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '100%',
+          maxWidth: 400,
+          opacity: fadeState === 'in' ? 1 : 0,
+          transition: 'opacity 0.5s ease',
+        }}>
+          <p style={{
+            textAlign: 'left',
+            color: '#171717',
+            fontSize: 18,
+            lineHeight: 1.6,
+            marginBottom: 24,
+            width: '100%',
+            ...fontStyle,
+          }}>
+            <Typewriter
+              text="What's your name?"
+              onComplete={() => setNameTypewriterDone(true)}
+              speed={100}
+            />
+          </p>
+
+          <div style={{
+            width: '100%',
+            opacity: nameTypewriterDone ? 1 : 0,
+            transition: 'opacity 0.5s ease',
+          }}>
+            <input
+              type="text"
+              value={senderName}
+              onChange={(e) => setSenderName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleNameSubmit()}
+              placeholder="Your name"
+              autoFocus
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                border: '1px solid #171717',
+                backgroundColor: 'transparent',
+                color: '#171717',
+                fontSize: 16,
+                outline: 'none',
+                boxSizing: 'border-box',
+                ...fontStyle,
+              }}
+            />
+            <button
+              onClick={handleNameSubmit}
+              disabled={!senderName.trim()}
+              style={{
+                marginTop: 16,
+                width: '100%',
+                padding: '12px 16px',
+                border: '1px solid #171717',
+                backgroundColor: 'transparent',
+                color: '#171717',
+                fontSize: 16,
+                cursor: senderName.trim() ? 'pointer' : 'not-allowed',
+                opacity: senderName.trim() ? 1 : 0.3,
                 ...fontStyle,
               }}
             >

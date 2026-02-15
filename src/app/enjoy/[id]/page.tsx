@@ -328,6 +328,8 @@ export default function EnjoyGesture() {
   const [loading, setLoading] = useState(true);
   const [audioPlaying, setAudioPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const audioExtensionsTried = useRef<string[]>([]);
 
   // Circle animation state
   const [circlePhase, setCirclePhase] = useState<CirclePhase>("hidden");
@@ -362,6 +364,14 @@ export default function EnjoyGesture() {
 
     fetchGesture();
   }, [gestureId]);
+
+  // Set initial audio URL when gesture loads
+  useEffect(() => {
+    if (gesture?.voice_url) {
+      setAudioUrl(gesture.voice_url);
+      audioExtensionsTried.current = [];
+    }
+  }, [gesture?.voice_url]);
 
   // Preload gesture animation images
   useEffect(() => {
@@ -500,6 +510,27 @@ export default function EnjoyGesture() {
   const handleAudioError = (e: React.SyntheticEvent<HTMLAudioElement>) => {
     console.error("Audio playback error:", e);
     setAudioPlaying(false);
+
+    // Try alternate extensions if the original fails
+    const extensions = ['.mp4', '.webm', '.ogg'];
+    const currentUrl = audioUrl || gesture?.voice_url;
+
+    if (currentUrl) {
+      // Find next extension to try
+      for (const ext of extensions) {
+        if (!audioExtensionsTried.current.includes(ext)) {
+          audioExtensionsTried.current.push(ext);
+          // Replace extension in URL
+          const newUrl = currentUrl.replace(/\.(mp4|webm|ogg)$/, ext);
+          if (newUrl !== currentUrl) {
+            console.log("Trying alternate audio URL:", newUrl);
+            setAudioUrl(newUrl);
+            return;
+          }
+        }
+      }
+    }
+
     alert("Unable to play audio. The format may not be supported on this device.");
   };
 
@@ -761,7 +792,7 @@ export default function EnjoyGesture() {
                     </svg>
                   </button>
                   <p style={{ color: "#666", fontSize: 14, ...fontStyle }}>{audioPlaying ? "Playing..." : "Tap to play"}</p>
-                  <audio ref={audioRef} src={gesture?.voice_url} onEnded={handleAudioEnded} onError={handleAudioError} />
+                  <audio ref={audioRef} src={audioUrl || gesture?.voice_url || ""} onEnded={handleAudioEnded} onError={handleAudioError} />
                 </div>
               )}
               {typewriterDone && !gesture?.voice_url && (

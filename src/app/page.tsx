@@ -553,36 +553,46 @@ export default function Home() {
             </button>
 
             {/* What is a tiny gesture? */}
-            <button
-              onClick={() => setShowExplanation(!showExplanation)}
-              style={{
-                marginTop: 20,
-                background: 'none',
-                border: 'none',
-                color: '#666',
-                fontSize: 14,
-                cursor: 'pointer',
-                textDecoration: 'underline',
-                ...fontStyle,
-              }}
-            >
-              What is a tiny gesture?
-            </button>
+            <div style={{ position: 'relative', width: '100%' }}>
+              <button
+                onClick={() => setShowExplanation(!showExplanation)}
+                style={{
+                  marginTop: 20,
+                  width: '100%',
+                  background: 'none',
+                  border: 'none',
+                  color: '#666',
+                  fontSize: 14,
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
+                  ...fontStyle,
+                }}
+              >
+                What is a tiny gesture? {showExplanation ? '▲' : '▼'}
+              </button>
 
-            {showExplanation && (
-              <div style={{
-                marginTop: 12,
-                padding: 16,
-                backgroundColor: '#f5f5f5',
-                borderRadius: 8,
-                textAlign: 'center',
-                ...fontStyle,
-              }}>
-                <p style={{ fontSize: 14, color: '#333', lineHeight: 1.6, margin: 0 }}>
-                  3 little 8-bit gestures that you make and send to your loved ones to make them smile. New gestures come out every month!
-                </p>
-              </div>
-            )}
+              {showExplanation && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  marginTop: 8,
+                  padding: 16,
+                  backgroundColor: '#fffefa',
+                  border: '1px solid #e0e0e0',
+                  borderRadius: 8,
+                  textAlign: 'center',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                  zIndex: 10,
+                  ...fontStyle,
+                }}>
+                  <p style={{ fontSize: 14, color: '#333', lineHeight: 1.6, margin: 0 }}>
+                    3 little 8-bit gestures that you make and send to your loved ones to make them smile. New gestures come out every month!
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
           <SmallHeart />

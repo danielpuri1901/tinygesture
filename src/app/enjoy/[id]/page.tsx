@@ -287,7 +287,7 @@ export default function EnjoyGesture() {
           <p style={{ color: "#999", fontFamily: "var(--font-anonymous-pro), 'Anonymous Pro', monospace", marginTop: 24, fontSize: 14 }}>tap the cookie...</p>
         )}
         {canContinue && (
-          <button onClick={onContinue} style={{ marginTop: 32, padding: "12px 32px", backgroundColor: "#171717", color: "white", border: "none", fontSize: 14, cursor: "pointer", borderRadius: 8, fontFamily: "var(--font-anonymous-pro), 'Anonymous Pro', monospace" }}>
+          <button onClick={onContinue} style={{ marginTop: 32, marginBottom: 80, padding: "12px 32px", backgroundColor: "#171717", color: "white", border: "none", fontSize: 14, cursor: "pointer", borderRadius: 8, fontFamily: "var(--font-anonymous-pro), 'Anonymous Pro', monospace" }}>
             Continue
           </button>
         )}
@@ -801,7 +801,7 @@ export default function EnjoyGesture() {
                 </div>
               )}
               {typewriterDone && (
-                <button onClick={handleContinue} style={{ marginTop: 32, padding: "12px 32px", backgroundColor: "#171717", color: "white", border: "none", fontSize: 14, cursor: "pointer", ...fontStyle }}>
+                <button onClick={handleContinue} style={{ marginTop: 32, marginBottom: 80, padding: "12px 32px", backgroundColor: "#171717", color: "white", border: "none", fontSize: 14, cursor: "pointer", ...fontStyle }}>
                   Continue
                 </button>
               )}
@@ -823,7 +823,7 @@ export default function EnjoyGesture() {
                 </div>
               )}
               {typewriterDone && (
-                <button onClick={handleContinue} style={{ marginTop: 32, padding: "12px 32px", backgroundColor: "#171717", color: "white", border: "none", fontSize: 14, cursor: "pointer", ...fontStyle }}>
+                <button onClick={handleContinue} style={{ marginTop: 32, marginBottom: 80, padding: "12px 32px", backgroundColor: "#171717", color: "white", border: "none", fontSize: 14, cursor: "pointer", ...fontStyle }}>
                   Continue
                 </button>
               )}

@@ -100,8 +100,8 @@ export default function Home() {
   const [step, setStep] = useState<JourneyStep>("email");
   const [recipientEmail, setRecipientEmail] = useState("");
   const [senderName, setSenderName] = useState("");
-  const [senderPhoto, setSenderPhoto] = useState<string | null>(null);
-  const [senderVoice, setSenderVoice] = useState<string | null>(null);
+  const [senderPhoto, setSenderPhoto] = useState<File | null>(null);
+  const [senderVoice, setSenderVoice] = useState<Blob | null>(null);
   const [fadeState, setFadeState] = useState<'in' | 'out'>('in');
   const [emailTypewriterDone, setEmailTypewriterDone] = useState(false);
   const [nameTypewriterDone, setNameTypewriterDone] = useState(false);
@@ -135,11 +135,7 @@ export default function Home() {
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setSenderPhoto(ev.target?.result as string);
-    };
-    reader.readAsDataURL(file);
+    setSenderPhoto(file);
   };
   const handlePhotoContinue = () => {
     if (!senderPhoto) return;
@@ -170,7 +166,7 @@ export default function Home() {
     };
     recorder.onstop = () => {
       const blob = new Blob(audioChunksRef.current, { type: mimeType || 'audio/webm' });
-      setSenderVoice(URL.createObjectURL(blob));
+      setSenderVoice(blob);
       // Stop all tracks to release the mic
       stream.getTracks().forEach(track => track.stop());
       streamRef.current = null;
@@ -203,6 +199,25 @@ export default function Home() {
         clicked_at: new Date().toISOString(),
         recipient_email: sanitizedEmail || null,
       });
+      // Upload photo and voice to storage if present
+      let photoUrl = null;
+      let voiceUrl = null;
+      if (senderPhoto) {
+        const photoPath = `photos/${crypto.randomUUID()}.${senderPhoto.name.split('.').pop()}`;
+        const { data: photoData, error: photoError } = await supabase.storage
+          .from('gestures')
+          .upload(photoPath, senderPhoto);
+        if (photoError) throw photoError;
+        photoUrl = supabase.storage.from('gestures').getPublicUrl(photoPath).data.publicUrl;
+      }
+      if (senderVoice) {
+        const voicePath = `voices/${crypto.randomUUID()}.webm`;
+        const { data: voiceData, error: voiceError } = await supabase.storage
+          .from('gestures')
+          .upload(voicePath, senderVoice);
+        if (voiceError) throw voiceError;
+        voiceUrl = supabase.storage.from('gestures').getPublicUrl(voicePath).data.publicUrl;
+      }
       // Create gesture record and get ID
       const newGestureId = crypto.randomUUID();
       setGestureId(newGestureId);
@@ -210,16 +225,34 @@ export default function Home() {
         id: newGestureId,
         recipient_email: sanitizedEmail || null,
         sender_name: senderName || null,
-        sender_photo: senderPhoto || null,
-        sender_voice: senderVoice || null,
+        sender_photo: photoUrl || null,
+        sender_voice: voiceUrl || null,
         created_at: new Date().toISOString(),
       });
+      // Send email to recipient
+      await sendEmail(newGestureId, sanitizedEmail);
       return newGestureId;
     } catch (e) {
       console.error("Failed to track:", e);
       return null;
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Send email to recipient
+  const sendEmail = async (gestureId: string, email: string) => {
+    try {
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientEmail: email,
+          gestureId: gestureId,
+        }),
+      });
+    } catch (e) {
+      console.error("Failed to send email:", e);
     }
   };
 
@@ -350,7 +383,7 @@ export default function Home() {
             </button>
             {senderPhoto && (
               <Image
-                src={senderPhoto}
+                src={URL.createObjectURL(senderPhoto)}
                 alt="Your photo"
                 width={120}
                 height={120}
@@ -379,7 +412,7 @@ export default function Home() {
             {!recording && <button onClick={handleStartRecording} style={{ padding: '12px 32px', backgroundColor: '#171717', color: 'white', border: 'none', fontSize: 14, cursor: 'pointer', borderRadius: 8, fontFamily: "'Anonymous Pro', monospace" }}>Start Recording</button>}
             {recording && <button onClick={handleStopRecording} style={{ padding: '12px 32px', backgroundColor: '#ef4444', color: 'white', border: 'none', fontSize: 14, cursor: 'pointer', borderRadius: 8, fontFamily: "'Anonymous Pro', monospace" }}>Stop Recording</button>}
             {senderVoice && (
-              <audio src={senderVoice} controls style={{ marginTop: 16 }}>
+              <audio src={URL.createObjectURL(senderVoice)} controls style={{ marginTop: 16 }}>
                 Your browser does not support the audio element.
               </audio>
             )}

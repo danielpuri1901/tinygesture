@@ -27,11 +27,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `File too large. Max ${maxSize / 1024 / 1024}MB` }, { status: 400 });
     }
 
-    // Determine file extension
-    const ext = type === "voice" ? "webm" : "jpg";
+    // Determine file extension from content type
+    let ext = "webm";
+    if (type === "voice") {
+      if (file.type.includes('mp4')) ext = 'mp4';
+      else if (file.type.includes('ogg')) ext = 'ogg';
+      else ext = 'webm';
+    } else {
+      ext = "jpg";
+    }
     const path = `${gestureId}/${type}.${ext}`;
 
     // Upload to Supabase Storage
+    console.log(`Uploading ${type} for gesture ${gestureId}, path: ${path}, size: ${file.size}, contentType: ${file.type}`);
+
     const { error: uploadError } = await supabase.storage
       .from("gestures-media")
       .upload(path, file, {
@@ -41,8 +50,10 @@ export async function POST(req: NextRequest) {
 
     if (uploadError) {
       console.error("Upload error:", uploadError);
-      return NextResponse.json({ error: "Failed to upload file" }, { status: 500 });
+      return NextResponse.json({ error: "Failed to upload file", details: uploadError.message }, { status: 500 });
     }
+
+    console.log(`Upload successful for ${type}`);
 
     // Get public URL
     const { data: urlData } = supabase.storage
@@ -53,15 +64,20 @@ export async function POST(req: NextRequest) {
 
     // Update gestures table with URL
     const columnName = type === "voice" ? "voice_url" : "photo_url";
-    const { error: updateError } = await supabase
+    console.log(`Updating ${columnName} in gestures table for ${gestureId} with URL: ${publicUrl}`);
+
+    const { error: updateError, data: updateData } = await supabase
       .from("gestures")
       .update({ [columnName]: publicUrl })
-      .eq("id", gestureId);
+      .eq("id", gestureId)
+      .select();
 
     if (updateError) {
       console.error("Database update error:", updateError);
-      // Don't fail - file is uploaded, just log the error
+      return NextResponse.json({ error: "Failed to update database", details: updateError.message }, { status: 500 });
     }
+
+    console.log(`Database update result for ${type}:`, updateData);
 
     return NextResponse.json({ success: true, url: publicUrl });
   } catch (error) {

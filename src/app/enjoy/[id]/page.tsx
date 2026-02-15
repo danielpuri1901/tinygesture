@@ -172,6 +172,7 @@ export default function EnjoyGesture() {
     const [stage, setStage] = useState<0 | 1 | 2 | 3 | 4 | 5>(0);
     const [showTapHint, setShowTapHint] = useState(true);
     const [messageRevealed, setMessageRevealed] = useState(0);
+    const [animationStarted, setAnimationStarted] = useState(false);
     const [message, setMessage] = useState(() =>
       FORTUNE_MESSAGES[Math.floor(Math.random() * FORTUNE_MESSAGES.length)]
     );
@@ -205,15 +206,16 @@ export default function EnjoyGesture() {
     }, [stage, messageRevealed, message]);
 
     const handleTap = () => {
-      if (!spritesLoaded || stage >= 5) return;
+      // Prevent multiple clicks from triggering animation
+      if (!spritesLoaded || animationStarted || stage !== 0) return;
+
+      setAnimationStarted(true);
       setShowTapHint(false);
-      if (stage === 0) {
-        setStage(1);
-        setTimeout(() => setStage(2), 500);
-        setTimeout(() => setStage(3), 1000);
-        setTimeout(() => setStage(4), 1400);
-        setTimeout(() => setStage(5), 1800);
-      }
+      setStage(1);
+      setTimeout(() => setStage(2), 500);
+      setTimeout(() => setStage(3), 1000);
+      setTimeout(() => setStage(4), 1400);
+      setTimeout(() => setStage(5), 1800);
     };
 
     // Continue after reveal
@@ -225,7 +227,7 @@ export default function EnjoyGesture() {
         <div
           className="fortune-cookie-container"
           onClick={handleTap}
-          style={{ width: "min(90vw, 320px)", aspectRatio: "1536 / 1024", position: "relative", cursor: canContinue ? "default" : "pointer" }}
+          style={{ width: "min(90vw, 320px)", aspectRatio: "1536 / 1024", position: "relative", cursor: animationStarted ? "default" : "pointer" }}
         >
           <div
             className={stage === 0 ? "animate-idle" : stage === 1 ? "animate-shake" : "animate-pop"}
@@ -483,6 +485,12 @@ export default function EnjoyGesture() {
 
   const handleAudioEnded = () => {
     setAudioPlaying(false);
+  };
+
+  const handleAudioError = (e: React.SyntheticEvent<HTMLAudioElement>) => {
+    console.error("Audio playback error:", e);
+    setAudioPlaying(false);
+    alert("Unable to play audio. The format may not be supported on this device.");
   };
 
   // No longer needed: goToPhoto, goToEnd
@@ -743,7 +751,7 @@ export default function EnjoyGesture() {
                     </svg>
                   </button>
                   <p style={{ color: "#666", fontSize: 14, ...fontStyle }}>{audioPlaying ? "Playing..." : "Tap to play"}</p>
-                  <audio ref={audioRef} src={gesture?.voice_url} onEnded={handleAudioEnded} />
+                  <audio ref={audioRef} src={gesture?.voice_url} onEnded={handleAudioEnded} onError={handleAudioError} />
                 </div>
               )}
               {typewriterDone && !gesture?.voice_url && (

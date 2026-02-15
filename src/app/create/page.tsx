@@ -144,7 +144,20 @@ export default function Create() {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
+
+      // Try to use mp4/aac for better compatibility, fallback to webm
+      let mimeType = 'audio/webm';
+      if (MediaRecorder.isTypeSupported('audio/mp4')) {
+        mimeType = 'audio/mp4';
+      } else if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        mimeType = 'audio/webm;codecs=opus';
+      } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
+        mimeType = 'audio/ogg;codecs=opus';
+      }
+
+      console.log("Using audio mimeType:", mimeType);
+
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
@@ -155,7 +168,8 @@ export default function Create() {
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        const blob = new Blob(audioChunksRef.current, { type: mimeType });
+        console.log("Recording complete, blob type:", blob.type, "size:", blob.size);
         setAudioBlob(blob);
         stream.getTracks().forEach((track) => track.stop());
       };
@@ -276,16 +290,21 @@ export default function Create() {
     }, 500);
 
     try {
-      // Upload voice
+      // Upload voice - determine extension from blob type
+      const voiceExt = audioBlob.type.includes('mp4') ? 'mp4' :
+                       audioBlob.type.includes('ogg') ? 'ogg' : 'webm';
       const voiceFormData = new FormData();
-      voiceFormData.append("file", audioBlob, "voice.webm");
+      voiceFormData.append("file", audioBlob, `voice.${voiceExt}`);
       voiceFormData.append("gestureId", gestureId);
       voiceFormData.append("type", "voice");
 
-      await fetch("/api/upload", {
+      console.log("Uploading voice...", { size: audioBlob.size, type: audioBlob.type });
+      const voiceRes = await fetch("/api/upload", {
         method: "POST",
         body: voiceFormData,
       });
+      const voiceData = await voiceRes.json();
+      console.log("Voice upload response:", voiceData);
 
       // Upload photo
       const photoFormData = new FormData();
@@ -293,10 +312,13 @@ export default function Create() {
       photoFormData.append("gestureId", gestureId);
       photoFormData.append("type", "photo");
 
-      await fetch("/api/upload", {
+      console.log("Uploading photo...", { size: photoBlob.size, type: photoBlob.type });
+      const photoRes = await fetch("/api/upload", {
         method: "POST",
         body: photoFormData,
       });
+      const photoData = await photoRes.json();
+      console.log("Photo upload response:", photoData);
 
       // Send email
       if (recipientEmail) {

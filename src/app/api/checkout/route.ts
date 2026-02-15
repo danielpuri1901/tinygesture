@@ -13,10 +13,14 @@ export async function POST(req: NextRequest) {
     }
 
     const stripe = new Stripe(stripeKey);
-    const { quantity } = await req.json();
+    const { quantity, discountCode } = await req.json();
 
     // Validate quantity
     const qty = Math.min(Math.max(1, parseInt(quantity) || 1), 99);
+
+    // Check for valid discount code (case-insensitive)
+    const isValidDiscount = discountCode?.toLowerCase() === "odyesee";
+    const unitAmount = isValidDiscount ? 0 : 100; // €0 if valid code, €1.00 otherwise
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card", "ideal"],
@@ -26,9 +30,9 @@ export async function POST(req: NextRequest) {
             currency: "eur",
             product_data: {
               name: "Tiny Gesture",
-              description: `${qty} tiny gesture${qty > 1 ? "s" : ""} for someone you love`,
+              description: `${qty} tiny gesture${qty > 1 ? "s" : ""} for someone you love${isValidDiscount ? " (discount applied)" : ""}`,
             },
-            unit_amount: 100, // €1.00 in cents
+            unit_amount: unitAmount,
           },
           quantity: qty,
         },

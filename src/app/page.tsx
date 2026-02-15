@@ -97,6 +97,7 @@ export default function Home() {
   const router = useRouter();
   const [step, setStep] = useState<JourneyStep>("intro");
   const [recipientEmail, setRecipientEmail] = useState("");
+  const [senderName, setSenderName] = useState("");
   const [fadeState, setFadeState] = useState<'in' | 'out'>('in');
 
   // Intro state
@@ -127,9 +128,10 @@ export default function Home() {
 
   // Handle email submit
   const handleEmailSubmit = () => {
-    if (!isValidEmail(recipientEmail)) return;
-    // Store email for later use
+    if (!isValidEmail(recipientEmail) || !senderName.trim()) return;
+    // Store email and name for later use
     localStorage.setItem('recipientEmail', recipientEmail);
+    localStorage.setItem('senderName', senderName.trim());
     setFadeState('out');
     setTimeout(() => {
       setStep("payment");
@@ -157,9 +159,11 @@ export default function Home() {
       localStorage.setItem('gestureId', gestureId);
 
       // Insert gesture record
+      const storedName = localStorage.getItem('senderName');
       await supabase.from("gestures").insert({
         id: gestureId,
         recipient_email: sanitizedEmail || null,
+        sender_name: storedName || null,
         created_at: new Date().toISOString(),
       });
 
@@ -322,12 +326,30 @@ export default function Home() {
             transition: 'opacity 0.5s ease',
           }}>
             <input
+              type="text"
+              value={senderName}
+              onChange={(e) => setSenderName(e.target.value)}
+              placeholder="Your name"
+              autoFocus
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                border: '1px solid #171717',
+                backgroundColor: 'transparent',
+                color: '#171717',
+                fontSize: 16,
+                outline: 'none',
+                boxSizing: 'border-box',
+                marginBottom: 12,
+                ...fontStyle,
+              }}
+            />
+            <input
               type="email"
               value={recipientEmail}
               onChange={(e) => setRecipientEmail(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleEmailSubmit()}
-              placeholder="Insert email (of your loved one)...."
-              autoFocus
+              placeholder="Their email"
               style={{
                 width: '100%',
                 padding: '12px 16px',
@@ -342,7 +364,7 @@ export default function Home() {
             />
             <button
               onClick={handleEmailSubmit}
-              disabled={!isValidEmail(recipientEmail)}
+              disabled={!isValidEmail(recipientEmail) || !senderName.trim()}
               style={{
                 marginTop: 16,
                 width: '100%',
@@ -351,8 +373,8 @@ export default function Home() {
                 backgroundColor: 'transparent',
                 color: '#171717',
                 fontSize: 16,
-                cursor: isValidEmail(recipientEmail) ? 'pointer' : 'not-allowed',
-                opacity: isValidEmail(recipientEmail) ? 1 : 0.3,
+                cursor: isValidEmail(recipientEmail) && senderName.trim() ? 'pointer' : 'not-allowed',
+                opacity: isValidEmail(recipientEmail) && senderName.trim() ? 1 : 0.3,
                 ...fontStyle,
               }}
             >

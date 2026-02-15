@@ -1,19 +1,36 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
-type RecipientStep = "intro" | "message1" | "message2" | "circles" | "voice" | "photo" | "end";
+type RecipientStep = "gesture" | "intro" | "message1" | "message2" | "circles" | "showGesture" | "end";
 type CirclePhase = "hidden" | "one" | "three" | "choose";
+type GestureStage = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 interface GestureData {
   id: string;
   voice_url: string | null;
   photo_url: string | null;
   recipient_email: string | null;
+  sender_name: string | null;
 }
+
+// Gesture animation constants
+const CHEST_Y = 4;
+const HEART_SIZES: { w: number; h: number; y: number; visible: boolean }[] = [
+  { w: 28, h: 25, y: CHEST_Y, visible: false },
+  { w: 28, h: 25, y: CHEST_Y, visible: false },
+  { w: 60, h: 53, y: CHEST_Y - 2, visible: true },
+  { w: 90, h: 80, y: CHEST_Y - 6, visible: true },
+  { w: 120, h: 107, y: CHEST_Y - 12, visible: true },
+  { w: 150, h: 133, y: CHEST_Y - 18, visible: true },
+  { w: 180, h: 160, y: CHEST_Y - 22, visible: true },
+  { w: 200, h: 178, y: CHEST_Y - 24, visible: true },
+];
+const CHARACTER_OPACITY = [1, 1, 1, 1, 0.85, 0.6, 0.3, 0];
 
 // Typewriter component
 function Typewriter({
@@ -115,7 +132,184 @@ export default function EnjoyGesture() {
   const params = useParams();
   const gestureId = params.id as string;
 
-  const [step, setStep] = useState<RecipientStep>("intro");
+  const [step, setStep] = useState<RecipientStep>("gesture");
+  // The order of gestures to show (dynamic)
+  const [gestureOrder, setGestureOrder] = useState<Array<"voice" | "photo" | "fortune">>(["voice", "photo", "fortune"]);
+  // Fortune cookie assets and logic
+  const FORTUNE_SPRITES = [
+    "/Fortune 1.png",
+    "/Fortune 2.png",
+    "/Fortune 3.png",
+    "/Fortune 5.png",
+    "/Fortune 6.png",
+    "/Fortune 7.png",
+  ];
+  const FORTUNE_PAPER_CLIP = { left: 29, top: 38, right: 74, bottom: 49 };
+  const FORTUNE_MESSAGES = [
+    "You're gonna have a great day",
+    "Someone is thinking of you",
+    "Good things are coming your way",
+    "You are loved more than you know",
+    "A beautiful surprise awaits you",
+    "Your smile brightens someone's day",
+    "The best is yet to come",
+    "You make the world a better place",
+    "A hug is on its way to you",
+    "You deserve all the good things",
+    "Today is your lucky day",
+    "Something wonderful is about to happen",
+    "You are stronger than you think",
+    "Happiness is closer than you realize",
+    "A kind word will find you soon",
+    "Your heart knows the way",
+    "The universe is rooting for you",
+    "A new friendship is around the corner",
+    "Trust the timing of your life",
+    "You are exactly where you need to be",
+  ];
+  // FortuneCookieGesture component (inline, not exported)
+  function FortuneCookieGesture({ onContinue }: { onContinue: () => void }) {
+    const [stage, setStage] = useState<0 | 1 | 2 | 3 | 4 | 5>(0);
+    const [showTapHint, setShowTapHint] = useState(true);
+    const [messageRevealed, setMessageRevealed] = useState(0);
+    const [message, setMessage] = useState(() =>
+      FORTUNE_MESSAGES[Math.floor(Math.random() * FORTUNE_MESSAGES.length)]
+    );
+    const [spritesLoaded, setSpritesLoaded] = useState(false);
+
+    useEffect(() => {
+      let cancelled = false;
+      Promise.all(
+        FORTUNE_SPRITES.map(
+          (src) =>
+            new Promise<void>((resolve) => {
+              const img = new window.Image();
+              img.onload = () => resolve();
+              img.onerror = () => resolve();
+              img.src = src;
+            })
+        )
+      ).then(() => {
+        if (!cancelled) setSpritesLoaded(true);
+      });
+      return () => { cancelled = true; };
+    }, []);
+
+    useEffect(() => {
+      if (stage === 5 && messageRevealed < message.length) {
+        const timer = setTimeout(() => {
+          setMessageRevealed((prev) => prev + 1);
+        }, 50);
+        return () => clearTimeout(timer);
+      }
+    }, [stage, messageRevealed, message]);
+
+    const handleTap = () => {
+      if (!spritesLoaded || stage >= 5) return;
+      setShowTapHint(false);
+      if (stage === 0) {
+        setStage(1);
+        setTimeout(() => setStage(2), 500);
+        setTimeout(() => setStage(3), 1000);
+        setTimeout(() => setStage(4), 1400);
+        setTimeout(() => setStage(5), 1800);
+      }
+    };
+
+    // Continue after reveal
+    const canContinue = stage === 5 && messageRevealed >= message.length;
+
+    return (
+      <div style={{ width: "100%", maxWidth: 400, minHeight: 420, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", position: "relative" }}>
+        <h2 style={{ color: "#1a56db", fontFamily: "var(--font-anonymous-pro), 'Anonymous Pro', monospace", fontSize: 20, marginBottom: 24, marginTop: 0 }}>Fortune cookie</h2>
+        <div
+          className="fortune-cookie-container"
+          onClick={handleTap}
+          style={{ width: "min(90vw, 320px)", aspectRatio: "1536 / 1024", position: "relative", cursor: canContinue ? "default" : "pointer" }}
+        >
+          <div
+            className={stage === 0 ? "animate-idle" : stage === 1 ? "animate-shake" : "animate-pop"}
+            key={stage}
+            style={{ width: "100%", height: "100%", position: "relative" }}
+          >
+            <Image
+              src={FORTUNE_SPRITES[stage]}
+              alt="Fortune cookie"
+              fill
+              style={{ objectFit: "contain", imageRendering: "pixelated" }}
+              priority
+            />
+            {stage === 5 && (
+              <div
+                style={{
+                  position: "absolute",
+                  left: `${FORTUNE_PAPER_CLIP.left}%`,
+                  top: `${FORTUNE_PAPER_CLIP.top}%`,
+                  width: `${FORTUNE_PAPER_CLIP.right - FORTUNE_PAPER_CLIP.left}%`,
+                  height: `${FORTUNE_PAPER_CLIP.bottom - FORTUNE_PAPER_CLIP.top}%`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  overflow: "hidden",
+                  pointerEvents: "none",
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: "var(--font-anonymous-pro), 'Anonymous Pro', monospace",
+                    fontSize: "clamp(7px, 2vw, 11px)",
+                    color: "#4a4540",
+                    textAlign: "center",
+                    lineHeight: 1.3,
+                    padding: "0 4px",
+                  }}
+                >
+                  {message.slice(0, messageRevealed)}
+                  {messageRevealed < message.length && <span className="animate-blink">|</span>}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+        {showTapHint && (
+          <p style={{ color: "#999", fontFamily: "var(--font-anonymous-pro), 'Anonymous Pro', monospace", marginTop: 24, fontSize: 14 }}>tap the cookie...</p>
+        )}
+        {canContinue && (
+          <button onClick={onContinue} style={{ marginTop: 32, padding: "12px 32px", backgroundColor: "#171717", color: "white", border: "none", fontSize: 14, cursor: "pointer", borderRadius: 8, fontFamily: "var(--font-anonymous-pro), 'Anonymous Pro', monospace" }}>
+            Continue
+          </button>
+        )}
+        <style jsx>{`
+          .animate-idle {
+            animation: idleBob 2s ease-in-out infinite;
+          }
+          @keyframes idleBob {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+          }
+          .animate-shake {
+            animation: shake 0.5s ease-in-out;
+          }
+          @keyframes shake {
+            0%, 100% { transform: translateX(0) rotate(0deg); }
+            15% { transform: translateX(-8px) rotate(-3deg); }
+            30% { transform: translateX(6px) rotate(2deg); }
+            45% { transform: translateX(-6px) rotate(-2deg); }
+            60% { transform: translateX(4px) rotate(1deg); }
+            75% { transform: translateX(-2px) rotate(-1deg); }
+          }
+          .animate-pop {
+            animation: popIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+          }
+          @keyframes popIn {
+            0% { opacity: 0; transform: scale(0.9); }
+            100% { opacity: 1; transform: scale(1); }
+          }
+        `}</style>
+      </div>
+    );
+  }
+  const [currentGestureIdx, setCurrentGestureIdx] = useState(0);
   const [fadeState, setFadeState] = useState<"in" | "out">("in");
   const [typewriterDone, setTypewriterDone] = useState(false);
   const [gesture, setGesture] = useState<GestureData | null>(null);
@@ -127,6 +321,11 @@ export default function EnjoyGesture() {
   const [circlePhase, setCirclePhase] = useState<CirclePhase>("hidden");
   const [circleText, setCircleText] = useState("Here is a Tiny Gesture");
   const circleAnimationStarted = useRef(false);
+
+  // Gesture animation state
+  const [gestureStage, setGestureStage] = useState<GestureStage>(0);
+  const [gestureImagesLoaded, setGestureImagesLoaded] = useState(false);
+  const [gestureAnimationDone, setGestureAnimationDone] = useState(false);
 
   const fontStyle = { fontFamily: "'Anonymous Pro', monospace" };
 
@@ -151,6 +350,59 @@ export default function EnjoyGesture() {
 
     fetchGesture();
   }, [gestureId]);
+
+  // Preload gesture animation images
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all(
+      ["/character.png", "/PNG heart.png"].map(
+        (src) =>
+          new Promise<void>((resolve) => {
+            const img = new window.Image();
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+            img.src = src;
+          })
+      )
+    ).then(() => {
+      if (!cancelled) setGestureImagesLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Run gesture animation once images and data are loaded
+  const runGestureAnimation = useCallback(() => {
+    if (!gestureImagesLoaded || loading) return;
+
+    const timings = [0, 800, 1600, 2200, 2700, 3200, 3700, 4200];
+    timings.forEach((ms, i) => {
+      if (i > 0) {
+        setTimeout(() => setGestureStage(i as GestureStage), ms);
+      }
+    });
+    setTimeout(() => setGestureAnimationDone(true), 4600);
+  }, [gestureImagesLoaded, loading]);
+
+  useEffect(() => {
+    if (step === "gesture") {
+      runGestureAnimation();
+    }
+  }, [step, runGestureAnimation]);
+
+  // Transition from gesture animation to intro after pulse
+  useEffect(() => {
+    if (!gestureAnimationDone) return;
+
+    const timer = setTimeout(() => {
+      setFadeState("out");
+      setTimeout(() => {
+        setStep("intro");
+        setFadeState("in");
+      }, 500);
+    }, 2500); // pulse for 2.5s then transition
+
+    return () => clearTimeout(timer);
+  }, [gestureAnimationDone]);
 
   // Handle step transitions
   useEffect(() => {
@@ -201,7 +453,10 @@ export default function EnjoyGesture() {
     if (circleAnimationStarted.current) return;
 
     circleAnimationStarted.current = true;
-    setCirclePhase("one");
+
+    const timer0 = setTimeout(() => {
+      setCirclePhase("one");
+    }, 0);
 
     const timer1 = setTimeout(() => {
       setCircleText("Nevermind here are three...!!");
@@ -214,18 +469,47 @@ export default function EnjoyGesture() {
     }, 5000);
 
     return () => {
+      clearTimeout(timer0);
       clearTimeout(timer1);
       clearTimeout(timer2);
     };
   }, [step, typewriterDone]);
 
-  // Handle gesture selection
-  const handleGestureSelect = (choice: "voice" | "photo" | "end") => {
+
+  // Handle gesture selection (start the sequence with correct order)
+  const handleGestureSelect = (choice: "voice" | "photo" | "fortune") => {
+    // Determine the order based on the first choice
+    let order: Array<"voice" | "photo" | "fortune"> = [];
+    if (choice === "photo") {
+      order = ["photo", "voice", "fortune"];
+    } else if (choice === "voice") {
+      order = ["voice", "photo", "fortune"];
+    } else if (choice === "fortune") {
+      order = ["fortune", "photo", "voice"];
+    }
     setFadeState("out");
     setTimeout(() => {
-      setStep(choice);
+      setGestureOrder(order);
+      setStep("showGesture");
       setFadeState("in");
       setTypewriterDone(false);
+      setCurrentGestureIdx(0);
+    }, 500);
+  };
+
+  // Continue to next gesture or end
+  const handleContinue = () => {
+    setFadeState("out");
+    setTimeout(() => {
+      if (currentGestureIdx < gestureOrder.length - 1) {
+        setCurrentGestureIdx((idx) => idx + 1);
+        setStep("showGesture");
+        setFadeState("in");
+        setTypewriterDone(false);
+      } else {
+        setStep("end");
+        setFadeState("in");
+      }
     }, 500);
   };
 
@@ -241,22 +525,7 @@ export default function EnjoyGesture() {
     setAudioPlaying(false);
   };
 
-  const goToPhoto = () => {
-    setFadeState("out");
-    setTimeout(() => {
-      setStep("photo");
-      setFadeState("in");
-      setTypewriterDone(false);
-    }, 500);
-  };
-
-  const goToEnd = () => {
-    setFadeState("out");
-    setTimeout(() => {
-      setStep("end");
-      setFadeState("in");
-    }, 500);
-  };
+  // No longer needed: goToPhoto, goToEnd
 
   // Circle styles
   const getCircleStyle = (index: 0 | 1 | 2): React.CSSProperties => {
@@ -294,7 +563,7 @@ export default function EnjoyGesture() {
     return baseStyle;
   };
 
-  if (loading) {
+  if (loading && step !== "gesture") {
     return (
       <div
         style={{
@@ -318,7 +587,7 @@ export default function EnjoyGesture() {
     );
   }
 
-  if (!gesture) {
+  if (!loading && !gesture) {
     return (
       <div
         style={{
@@ -351,6 +620,104 @@ export default function EnjoyGesture() {
         padding: "0 24px",
       }}
     >
+      {/* GESTURE ANIMATION STEP */}
+      {step === "gesture" && (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: fadeState === "in" ? 1 : 0,
+            transition: "opacity 0.5s ease",
+          }}
+        >
+          {/* Character + Heart container */}
+          <div
+            style={{
+              position: "relative",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 200,
+              height: 220,
+            }}
+          >
+            {/* Character */}
+            <div
+              style={{
+                position: "absolute",
+                transition: "opacity 0.5s ease",
+                opacity: CHARACTER_OPACITY[gestureStage],
+                zIndex: 1,
+                width: 120,
+                height: 160,
+              }}
+            >
+              <Image
+                src="/character.png"
+                alt="Character"
+                width={120}
+                height={160}
+                unoptimized
+                style={{ objectFit: "contain", imageRendering: "pixelated" }}
+                priority
+              />
+            </div>
+
+            {/* Heart - grows via width/height */}
+            <div
+              className={gestureAnimationDone ? "gesture-heart-pulse" : ""}
+              style={{
+                position: "absolute",
+                transition: "width 0.5s ease-out, height 0.5s ease-out, top 0.5s ease-out, opacity 0.3s ease",
+                width: HEART_SIZES[gestureStage].w,
+                height: HEART_SIZES[gestureStage].h,
+                top: `calc(50% + ${HEART_SIZES[gestureStage].y}px)`,
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                opacity: HEART_SIZES[gestureStage].visible ? 1 : 0,
+                zIndex: gestureStage >= 2 ? 2 : 0,
+              }}
+            >
+              <Image
+                src="/PNG heart.png"
+                alt="Heart"
+                fill
+                unoptimized
+                style={{ objectFit: "contain", imageRendering: "pixelated" }}
+                priority
+              />
+            </div>
+          </div>
+
+          {/* Text */}
+          <div style={{ marginTop: 24, textAlign: "center", minHeight: 30 }}>
+            {gestureStage <= 6 && (
+              <p
+                style={{
+                  fontSize: 16,
+                  color: "#171717",
+                  transition: "opacity 0.4s ease",
+                  opacity: gestureImagesLoaded && !loading ? 1 : 0,
+                  ...fontStyle,
+                }}
+              >
+                {gesture?.sender_name || "Someone"} sends you ......
+              </p>
+            )}
+            {gestureStage === 7 && (
+              <p
+                className="gesture-fade-in"
+                style={{ fontSize: 16, color: "#171717", ...fontStyle }}
+              >
+                A Tiny Gesture...
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* INTRO STEP */}
       {step === "intro" && (
         <div
@@ -404,7 +771,7 @@ export default function EnjoyGesture() {
           </p>
 
           <div style={{ position: "relative", width: 300, height: 70, marginTop: 32, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            {/* Left circle - Voice */}
+            {/* Each circle starts the sequence with its own order */}
             <div
               style={getCircleStyle(0)}
               onClick={() => circlePhase === "choose" && handleGestureSelect("voice")}
@@ -414,8 +781,6 @@ export default function EnjoyGesture() {
                 <MicrophoneIcon />
               </div>
             </div>
-
-            {/* Middle circle - Photo */}
             <div
               style={getCircleStyle(1)}
               onClick={() => circlePhase === "choose" && handleGestureSelect("photo")}
@@ -425,11 +790,9 @@ export default function EnjoyGesture() {
                 <CameraIcon />
               </div>
             </div>
-
-            {/* Right circle - Heart/End */}
             <div
               style={getCircleStyle(2)}
-              onClick={() => circlePhase === "choose" && handleGestureSelect("end")}
+              onClick={() => circlePhase === "choose" && handleGestureSelect("fortune")}
               role={circlePhase === "choose" ? "button" : undefined}
             >
               <div style={{ opacity: circlePhase === "choose" ? 1 : 0, transition: "opacity 0.4s ease 0.3s" }}>
@@ -437,95 +800,91 @@ export default function EnjoyGesture() {
               </div>
             </div>
           </div>
-
           <SmallHeart />
         </div>
       )}
 
-      {/* VOICE STEP */}
-      {step === "voice" && (
+
+      {/* SHOW GESTURE STEP (voice, photo, heart) */}
+      {step === "showGesture" && (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: "100%", maxWidth: 400, opacity: fadeState === "in" ? 1 : 0, transition: "opacity 0.5s ease" }}>
-          <p style={{ textAlign: "center", color: "#171717", fontSize: 18, lineHeight: 1.6, marginBottom: 32, ...fontStyle }}>
-            <Typewriter text="Listen to their message..." onComplete={() => setTypewriterDone(true)} speed={100} />
-          </p>
-
-          {typewriterDone && gesture.voice_url && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
-              <button
-                onClick={playAudio}
-                disabled={audioPlaying}
-                style={{
-                  width: 100,
-                  height: 100,
-                  borderRadius: "50%",
-                  backgroundColor: audioPlaying ? "#ef4444" : "#171717",
-                  border: "none",
-                  cursor: audioPlaying ? "default" : "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  animation: audioPlaying ? "pulse 1s ease-in-out infinite" : "none",
-                }}
-              >
-                <svg width="40" height="40" viewBox="0 0 16 16" fill="white">
-                  {audioPlaying ? (
-                    <>
-                      <rect x="2" y="6" width="2" height="4" fill="white" />
-                      <rect x="5" y="4" width="2" height="8" fill="white" />
-                      <rect x="8" y="2" width="2" height="12" fill="white" />
-                      <rect x="11" y="5" width="2" height="6" fill="white" />
-                    </>
-                  ) : (
-                    <polygon points="4,2 14,8 4,14" fill="white" />
-                  )}
-                </svg>
-              </button>
-              <p style={{ color: "#666", fontSize: 14, ...fontStyle }}>{audioPlaying ? "Playing..." : "Tap to play"}</p>
-              <audio ref={audioRef} src={gesture.voice_url} onEnded={handleAudioEnded} />
-              <button onClick={goToPhoto} style={{ marginTop: 16, padding: "12px 32px", backgroundColor: "#171717", color: "white", border: "none", fontSize: 14, cursor: "pointer", ...fontStyle }}>
-                See their photo
-              </button>
-            </div>
+          {gestureOrder[currentGestureIdx] === "voice" && (
+            <>
+              <p style={{ textAlign: "center", color: "#171717", fontSize: 18, lineHeight: 1.6, marginBottom: 32, ...fontStyle }}>
+                <Typewriter text="Listen to their message..." onComplete={() => setTypewriterDone(true)} speed={100} />
+              </p>
+              {typewriterDone && gesture?.voice_url && (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+                  <button
+                    onClick={playAudio}
+                    disabled={audioPlaying}
+                    style={{
+                      width: 100,
+                      height: 100,
+                      borderRadius: "50%",
+                      backgroundColor: audioPlaying ? "#ef4444" : "#171717",
+                      border: "none",
+                      cursor: audioPlaying ? "default" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      animation: audioPlaying ? "pulse 1s ease-in-out infinite" : "none",
+                    }}
+                  >
+                    <svg width="40" height="40" viewBox="0 0 16 16" fill="white">
+                      {audioPlaying ? (
+                        <>
+                          <rect x="2" y="6" width="2" height="4" fill="white" />
+                          <rect x="5" y="4" width="2" height="8" fill="white" />
+                          <rect x="8" y="2" width="2" height="12" fill="white" />
+                          <rect x="11" y="5" width="2" height="6" fill="white" />
+                        </>
+                      ) : (
+                        <polygon points="4,2 14,8 4,14" fill="white" />
+                      )}
+                    </svg>
+                  </button>
+                  <p style={{ color: "#666", fontSize: 14, ...fontStyle }}>{audioPlaying ? "Playing..." : "Tap to play"}</p>
+                  <audio ref={audioRef} src={gesture?.voice_url} onEnded={handleAudioEnded} />
+                </div>
+              )}
+              {typewriterDone && !gesture?.voice_url && (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+                  <p style={{ color: "#666", fontSize: 14, ...fontStyle }}>No voice message yet</p>
+                </div>
+              )}
+              {typewriterDone && (
+                <button onClick={handleContinue} style={{ marginTop: 32, padding: "12px 32px", backgroundColor: "#171717", color: "white", border: "none", fontSize: 14, cursor: "pointer", ...fontStyle }}>
+                  Continue
+                </button>
+              )}
+            </>
           )}
-
-          {typewriterDone && !gesture.voice_url && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
-              <p style={{ color: "#666", fontSize: 14, ...fontStyle }}>No voice message yet</p>
-              <button onClick={goToPhoto} style={{ padding: "12px 32px", backgroundColor: "#171717", color: "white", border: "none", fontSize: 14, cursor: "pointer", ...fontStyle }}>
-                See their photo
-              </button>
-            </div>
+          {gestureOrder[currentGestureIdx] === "photo" && (
+            <>
+              <p style={{ textAlign: "center", color: "#171717", fontSize: 18, lineHeight: 1.6, marginBottom: 24, ...fontStyle }}>
+                <Typewriter text="They wanted to show you this..." onComplete={() => setTypewriterDone(true)} speed={100} />
+              </p>
+              {typewriterDone && gesture?.photo_url && (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 24 }}>
+                  <img src={gesture?.photo_url} alt="A tiny gesture for you" style={{ width: "100%", maxWidth: 300, borderRadius: 8, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }} />
+                </div>
+              )}
+              {typewriterDone && !gesture?.photo_url && (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+                  <p style={{ color: "#666", fontSize: 14, ...fontStyle }}>No photo yet</p>
+                </div>
+              )}
+              {typewriterDone && (
+                <button onClick={handleContinue} style={{ marginTop: 32, padding: "12px 32px", backgroundColor: "#171717", color: "white", border: "none", fontSize: 14, cursor: "pointer", ...fontStyle }}>
+                  Continue
+                </button>
+              )}
+            </>
           )}
-
-          <SmallHeart />
-        </div>
-      )}
-
-      {/* PHOTO STEP */}
-      {step === "photo" && (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: "100%", maxWidth: 400, opacity: fadeState === "in" ? 1 : 0, transition: "opacity 0.5s ease" }}>
-          <p style={{ textAlign: "center", color: "#171717", fontSize: 18, lineHeight: 1.6, marginBottom: 24, ...fontStyle }}>
-            <Typewriter text="They wanted to show you this..." onComplete={() => setTypewriterDone(true)} speed={100} />
-          </p>
-
-          {typewriterDone && gesture.photo_url && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 24 }}>
-              <img src={gesture.photo_url} alt="A tiny gesture for you" style={{ width: "100%", maxWidth: 300, borderRadius: 8, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }} />
-              <button onClick={goToEnd} style={{ padding: "12px 32px", backgroundColor: "#171717", color: "white", border: "none", fontSize: 14, cursor: "pointer", ...fontStyle }}>
-                Continue
-              </button>
-            </div>
+          {gestureOrder[currentGestureIdx] === "fortune" && (
+            <FortuneCookieGesture onContinue={handleContinue} />
           )}
-
-          {typewriterDone && !gesture.photo_url && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
-              <p style={{ color: "#666", fontSize: 14, ...fontStyle }}>No photo yet</p>
-              <button onClick={goToEnd} style={{ padding: "12px 32px", backgroundColor: "#171717", color: "white", border: "none", fontSize: 14, cursor: "pointer", ...fontStyle }}>
-                Continue
-              </button>
-            </div>
-          )}
-
           <SmallHeart />
         </div>
       )}
@@ -533,15 +892,9 @@ export default function EnjoyGesture() {
       {/* END STEP */}
       {step === "end" && (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: "100%", maxWidth: 400, opacity: fadeState === "in" ? 1 : 0, transition: "opacity 0.5s ease" }}>
-          <div style={{ width: 80, height: 80, marginBottom: 24 }}>
-            <Image src="/heart.png" alt="Heart" width={80} height={80} style={{ objectFit: "contain" }} />
-          </div>
-          <p style={{ textAlign: "center", color: "#171717", fontSize: 18, lineHeight: 1.6, ...fontStyle }}>
-            <Typewriter text="Someone loves you very much..." speed={100} />
-          </p>
-          <a href="/" style={{ marginTop: 32, padding: "12px 32px", backgroundColor: "#171717", color: "white", border: "none", fontSize: 14, cursor: "pointer", textDecoration: "none", ...fontStyle }}>
+          <Link href="/" style={{ marginTop: 32, padding: "12px 32px", backgroundColor: "#171717", color: "white", border: "none", fontSize: 14, cursor: "pointer", textDecoration: "none", ...fontStyle }}>
             Send them one back
-          </a>
+          </Link>
           <SmallHeart />
         </div>
       )}
@@ -550,6 +903,33 @@ export default function EnjoyGesture() {
         @keyframes pulse {
           0%, 100% { transform: scale(1); }
           50% { transform: scale(1.1); }
+        }
+
+        .gesture-heart-pulse {
+          animation: gestureHeartPulse 1.2s ease-in-out infinite !important;
+          transition: none !important;
+        }
+
+        @keyframes gestureHeartPulse {
+          0%, 100% {
+            width: 200px;
+            height: 178px;
+            top: calc(50% + -6px);
+          }
+          50% {
+            width: 220px;
+            height: 196px;
+            top: calc(50% + -10px);
+          }
+        }
+
+        .gesture-fade-in {
+          animation: gestureFadeIn 0.8s ease-out forwards;
+        }
+
+        @keyframes gestureFadeIn {
+          0% { opacity: 0; }
+          100% { opacity: 1; }
         }
       `}</style>
     </div>

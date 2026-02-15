@@ -230,17 +230,26 @@ export default function EnjoyGesture() {
           style={{ width: "min(90vw, 320px)", aspectRatio: "1536 / 1024", position: "relative", cursor: animationStarted ? "default" : "pointer" }}
         >
           <div
-            className={stage === 0 ? "animate-idle" : stage === 1 ? "animate-shake" : "animate-pop"}
-            key={stage}
+            className={stage === 0 ? "animate-idle" : stage === 1 ? "animate-shake" : ""}
             style={{ width: "100%", height: "100%", position: "relative" }}
           >
-            <Image
-              src={FORTUNE_SPRITES[stage]}
-              alt="Fortune cookie"
-              fill
-              style={{ objectFit: "contain", imageRendering: "pixelated" }}
-              priority
-            />
+            {/* Preload all sprites and show current one */}
+            {FORTUNE_SPRITES.map((sprite, idx) => (
+              <Image
+                key={sprite}
+                src={sprite}
+                alt="Fortune cookie"
+                fill
+                style={{
+                  objectFit: "contain",
+                  imageRendering: "pixelated",
+                  opacity: idx === stage ? 1 : 0,
+                  transition: "opacity 0.2s ease",
+                }}
+                priority
+              />
+            ))}
+            {/* Message overlay - shown on final stage */}
             {stage === 5 && (
               <div
                 style={{
@@ -254,6 +263,7 @@ export default function EnjoyGesture() {
                   justifyContent: "center",
                   overflow: "hidden",
                   pointerEvents: "none",
+                  zIndex: 10,
                 }}
               >
                 <span

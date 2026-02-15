@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
-type RecipientStep = "gesture" | "intro" | "message1" | "message2" | "circles" | "showGesture" | "end";
+type RecipientStep = "gesture" | "circles" | "showGesture" | "end";
 type CirclePhase = "hidden" | "one" | "three" | "choose";
 type GestureStage = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
@@ -389,62 +389,22 @@ export default function EnjoyGesture() {
     }
   }, [step, runGestureAnimation]);
 
-  // Transition from gesture animation to intro after pulse
+  // Transition from gesture animation to circles after pulse
   useEffect(() => {
     if (!gestureAnimationDone) return;
 
     const timer = setTimeout(() => {
       setFadeState("out");
       setTimeout(() => {
-        setStep("intro");
+        setStep("circles");
         setFadeState("in");
+        setTypewriterDone(false);
+        setCircleText("Here is a Tiny Gesture");
       }, 500);
     }, 2500); // pulse for 2.5s then transition
 
     return () => clearTimeout(timer);
   }, [gestureAnimationDone]);
-
-  // Handle step transitions
-  useEffect(() => {
-    if (!typewriterDone) return;
-
-    if (step === "intro") {
-      const timer = setTimeout(() => {
-        setFadeState("out");
-        setTimeout(() => {
-          setStep("message1");
-          setFadeState("in");
-          setTypewriterDone(false);
-        }, 500);
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-
-    if (step === "message1") {
-      const timer = setTimeout(() => {
-        setFadeState("out");
-        setTimeout(() => {
-          setStep("message2");
-          setFadeState("in");
-          setTypewriterDone(false);
-        }, 500);
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-
-    if (step === "message2") {
-      const timer = setTimeout(() => {
-        setFadeState("out");
-        setTimeout(() => {
-          setStep("circles");
-          setFadeState("in");
-          setTypewriterDone(false);
-          setCircleText("Here is a Tiny Gesture");
-        }, 500);
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [typewriterDone, step]);
 
   // Handle circle phase transitions
   useEffect(() => {
@@ -459,7 +419,7 @@ export default function EnjoyGesture() {
     }, 0);
 
     const timer1 = setTimeout(() => {
-      setCircleText("Nevermind here are three...!!");
+      setCircleText("Nevermind there are three...!!");
       setCirclePhase("three");
     }, 2500);
 
@@ -721,47 +681,6 @@ export default function EnjoyGesture() {
               </p>
             )}
           </div>
-        </div>
-      )}
-
-      {/* INTRO STEP */}
-      {step === "intro" && (
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            opacity: fadeState === "in" ? 1 : 0,
-            transition: "opacity 0.5s ease",
-          }}
-        >
-          <div style={{ width: 100, height: 100, animation: "heartbeatContinuous 1.5s ease-in-out infinite" }}>
-            <Image src="/heart.png" alt="Heart" width={100} height={100} style={{ width: "100%", height: "100%", objectFit: "contain" }} priority />
-          </div>
-          <h1 style={{ marginTop: 32, fontSize: 20, textAlign: "center", color: "#171717", ...fontStyle }}>
-            <Typewriter text="A Tiny Gesture..." onComplete={() => setTypewriterDone(true)} speed={150} />
-          </h1>
-        </div>
-      )}
-
-      {/* MESSAGE 1 */}
-      {step === "message1" && (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: "100%", maxWidth: 400, opacity: fadeState === "in" ? 1 : 0, transition: "opacity 0.5s ease" }}>
-          <p style={{ textAlign: "center", color: "#171717", fontSize: 18, lineHeight: 1.6, ...fontStyle }}>
-            <Typewriter text="Someone is thinking about you today..." onComplete={() => setTypewriterDone(true)} speed={100} />
-          </p>
-          <SmallHeart />
-        </div>
-      )}
-
-      {/* MESSAGE 2 */}
-      {step === "message2" && (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: "100%", maxWidth: 400, opacity: fadeState === "in" ? 1 : 0, transition: "opacity 0.5s ease" }}>
-          <p style={{ textAlign: "center", color: "#171717", fontSize: 18, lineHeight: 1.6, ...fontStyle }}>
-            <Typewriter text="And they wanted to give you something special..." onComplete={() => setTypewriterDone(true)} speed={100} />
-          </p>
-          <SmallHeart />
         </div>
       )}
 

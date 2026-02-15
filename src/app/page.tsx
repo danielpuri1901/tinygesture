@@ -109,6 +109,7 @@ export default function Home() {
   // Payment state
   const [paymentTypewriterDone, setPaymentTypewriterDone] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [discountCode, setDiscountCode] = useState("");
 
   // After typewriter completes, wait then transition
   useEffect(() => {
@@ -219,7 +220,7 @@ export default function Home() {
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quantity: 1 }),
+        body: JSON.stringify({ quantity: 1, discountCode }),
       });
 
       const { url, error } = await res.json();
@@ -420,6 +421,24 @@ export default function Home() {
             opacity: paymentTypewriterDone ? 1 : 0,
             transition: 'opacity 0.5s ease',
           }}>
+            <input
+              type="text"
+              value={discountCode}
+              onChange={(e) => setDiscountCode(e.target.value)}
+              placeholder="Discount code (optional)"
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                border: '1px solid #171717',
+                backgroundColor: 'transparent',
+                color: '#171717',
+                fontSize: 14,
+                outline: 'none',
+                boxSizing: 'border-box',
+                marginBottom: 12,
+                ...fontStyle,
+              }}
+            />
             <button
               onClick={handleTikkieClick}
               disabled={isSubmitting}
@@ -459,7 +478,7 @@ export default function Home() {
               <AppleLogo />
               <span style={{ color: '#666' }}>|</span>
               <GoogleLogo />
-              <span style={{ marginLeft: 4 }}>Pay €1</span>
+              <span style={{ marginLeft: 4 }}>{discountCode.toLowerCase() === 'odyesee' ? 'Pay €0' : 'Pay €1'}</span>
             </button>
           </div>
 

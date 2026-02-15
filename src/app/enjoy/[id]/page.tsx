@@ -525,6 +525,12 @@ export default function EnjoyGesture() {
     setAudioPlaying(false);
   };
 
+  const handleAudioError = (e: React.SyntheticEvent<HTMLAudioElement>) => {
+    console.error("Audio playback error:", e);
+    setAudioPlaying(false);
+    alert("Unable to play audio. The format may not be supported on this device.");
+  };
+
   // No longer needed: goToPhoto, goToEnd
 
   // Circle styles
@@ -845,7 +851,7 @@ export default function EnjoyGesture() {
                     </svg>
                   </button>
                   <p style={{ color: "#666", fontSize: 14, ...fontStyle }}>{audioPlaying ? "Playing..." : "Tap to play"}</p>
-                  <audio ref={audioRef} src={gesture?.voice_url} onEnded={handleAudioEnded} />
+                  <audio ref={audioRef} src={gesture?.voice_url} onEnded={handleAudioEnded} onError={handleAudioError} />
                 </div>
               )}
               {typewriterDone && !gesture?.voice_url && (

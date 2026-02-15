@@ -73,12 +73,25 @@ export default function FortuneCookie() {
     fortuneMessages[Math.floor(Math.random() * fortuneMessages.length)]
   );
 
-  // Preload all sprites
+  const [spritesLoaded, setSpritesLoaded] = useState(false);
+
+  // Preload all sprites and wait for them to finish
   useEffect(() => {
-    SPRITES.forEach((src) => {
-      const img = new window.Image();
-      img.src = src;
+    let cancelled = false;
+    Promise.all(
+      SPRITES.map(
+        (src) =>
+          new Promise<void>((resolve) => {
+            const img = new window.Image();
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+            img.src = src;
+          })
+      )
+    ).then(() => {
+      if (!cancelled) setSpritesLoaded(true);
     });
+    return () => { cancelled = true; };
   }, []);
 
   // Typewriter effect for the fortune message
@@ -92,7 +105,7 @@ export default function FortuneCookie() {
   }, [stage, messageRevealed, message]);
 
   const handleTap = () => {
-    if (stage >= 5) return;
+    if (!spritesLoaded || stage >= 5) return;
     setShowTapHint(false);
 
     if (stage === 0) {

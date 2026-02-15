@@ -603,27 +603,6 @@ export default function EnjoyGesture() {
               height: 220,
             }}
           >
-            {/* Character */}
-            <div
-              style={{
-                position: "absolute",
-                transition: "opacity 0.5s ease",
-                opacity: CHARACTER_OPACITY[gestureStage],
-                zIndex: 1,
-                width: 120,
-                height: 160,
-              }}
-            >
-              <Image
-                src="/character.png"
-                alt="Character"
-                width={120}
-                height={160}
-                unoptimized
-                style={{ objectFit: "contain", imageRendering: "pixelated" }}
-                priority
-              />
-            </div>
 
             {/* Heart - grows via width/height */}
             <div

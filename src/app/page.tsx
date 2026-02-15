@@ -3,10 +3,10 @@
 import { supabase } from "@/lib/supabase";
 import Image from "next/image";
 import { useEffect, useState, useRef } from "react";
-
+import { useRouter } from "next/navigation";
 
 // Types
-type JourneyStep = "email" | "name" | "photo" | "voice" | "payment" | "confirmation" | "preview";
+type JourneyStep = "intro" | "email" | "payment" | "confirmation";
 
 // Apple logo
 const AppleLogo = () => (
@@ -82,8 +82,6 @@ function SmallHeart() {
   );
 }
 
-
-
 // Simple email validation
 const isValidEmail = (email: string) => {
   if (!email) return false;
@@ -96,105 +94,80 @@ const sanitizeInput = (input: string) => {
 };
 
 export default function Home() {
-  // const router = useRouter();
-  const [step, setStep] = useState<JourneyStep>("email");
+  const router = useRouter();
+  const [step, setStep] = useState<JourneyStep>("intro");
   const [recipientEmail, setRecipientEmail] = useState("");
   const [senderName, setSenderName] = useState("");
-  const [senderPhoto, setSenderPhoto] = useState<string | null>(null);
-  const [senderVoice, setSenderVoice] = useState<string | null>(null);
   const [fadeState, setFadeState] = useState<'in' | 'out'>('in');
+
+  // Intro state
+  const [typewriterDone, setTypewriterDone] = useState(false);
+
+  // Email state
   const [emailTypewriterDone, setEmailTypewriterDone] = useState(false);
-  const [nameTypewriterDone, setNameTypewriterDone] = useState(false);
-  const [photoTypewriterDone, setPhotoTypewriterDone] = useState(false);
-  const [voiceTypewriterDone, setVoiceTypewriterDone] = useState(false);
+
+  // Payment state
   const [paymentTypewriterDone, setPaymentTypewriterDone] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [gestureId, setGestureId] = useState<string | null>(null);
 
-  // Step transitions
-  const goToStep = (next: JourneyStep) => {
+  // After typewriter completes, wait then transition
+  useEffect(() => {
+    if (typewriterDone && step === "intro") {
+      const timer = setTimeout(() => {
+        // Fade out
+        setFadeState('out');
+        // After fade, change step
+        setTimeout(() => {
+          setStep("email");
+          setFadeState('in');
+        }, 500);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [typewriterDone, step]);
+
+  // Handle email submit
+  const handleEmailSubmit = () => {
+    if (!isValidEmail(recipientEmail) || !senderName.trim()) return;
+    // Store email and name for later use
+    localStorage.setItem('recipientEmail', recipientEmail);
+    localStorage.setItem('senderName', senderName.trim());
     setFadeState('out');
     setTimeout(() => {
-      setStep(next);
+      setStep("payment");
       setFadeState('in');
     }, 500);
   };
 
-  // Step-by-step handlers
-  const handleEmailContinue = () => {
-    if (!isValidEmail(recipientEmail)) return;
-    goToStep("name");
-  };
-
-  const handleNameContinue = () => {
-    if (!senderName.trim()) return;
-    goToStep("photo");
-  };
-
-  // Photo upload (simple base64 for demo)
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setSenderPhoto(ev.target?.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
-  const handlePhotoContinue = () => {
-    if (!senderPhoto) return;
-    goToStep("voice");
-  };
-
-  // Voice note (simple audio recorder)
-  const [recording, setRecording] = useState(false);
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
-  const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
-  const handleStartRecording = async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const recorder = new MediaRecorder(stream);
-    setMediaRecorder(recorder);
-    setAudioChunks([]);
-    recorder.ondataavailable = (e) => setAudioChunks((chunks) => [...chunks, e.data]);
-    recorder.onstop = () => {
-      const blob = new Blob(audioChunks, { type: 'audio/webm' });
-      setSenderVoice(URL.createObjectURL(blob));
-    };
-    recorder.start();
-    setRecording(true);
-  };
-  const handleStopRecording = () => {
-    mediaRecorder?.stop();
-    setRecording(false);
-  };
-  const handleVoiceContinue = () => {
-    if (!senderVoice) return;
-    goToStep("payment");
-  };
-
-  // Track click and create gesture record (now after all info is collected)
+  // Track click and create gesture record
   const trackClick = async (paymentMethod: "tikkie" | "stripe") => {
     if (isSubmitting) return;
     setIsSubmitting(true);
+
     try {
       const sanitizedEmail = sanitizeInput(recipientEmail);
+
+      // Insert into clicks table
       await supabase.from("clicks").insert({
         payment_method: paymentMethod,
         clicked_at: new Date().toISOString(),
         recipient_email: sanitizedEmail || null,
       });
+
       // Create gesture record and get ID
-      const newGestureId = crypto.randomUUID();
-      setGestureId(newGestureId);
+      const gestureId = crypto.randomUUID();
+      localStorage.setItem('gestureId', gestureId);
+
+      // Insert gesture record
+      const storedName = localStorage.getItem('senderName');
       await supabase.from("gestures").insert({
-        id: newGestureId,
+        id: gestureId,
         recipient_email: sanitizedEmail || null,
-        sender_name: senderName || null,
-        sender_photo: senderPhoto || null,
-        sender_voice: senderVoice || null,
+        sender_name: storedName || null,
         created_at: new Date().toISOString(),
       });
-      return newGestureId;
+
+      return gestureId;
     } catch (e) {
       console.error("Failed to track:", e);
       return null;
@@ -203,36 +176,65 @@ export default function Home() {
     }
   };
 
+  // Send email to recipient
+  const sendEmail = async (gestureId: string) => {
+    const email = localStorage.getItem('recipientEmail');
+    if (!email || !gestureId) return;
 
+    try {
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientEmail: email,
+          gestureId: gestureId,
+        }),
+      });
+    } catch (e) {
+      console.error("Failed to send email:", e);
+    }
+  };
 
   // Handle Tikkie payment
-  const handleTikkieClick = async () => {
+  const handleTikkieClick = () => {
+    // Open link FIRST - must be synchronous for mobile browsers
     window.open("https://tikkie.me/pay/6i4f00j4kmf5pcsh1cg3", "_blank");
-    await trackClick("tikkie");
-    goToStep("confirmation");
+
+    // Track click (email sent after media upload on /create page)
+    trackClick("tikkie");
+
+    // Redirect to create page for media collection
+    setFadeState('out');
+    setTimeout(() => {
+      router.push("/create");
+    }, 500);
   };
 
   // Handle Stripe payment
   const handleStripeClick = async () => {
+    // Create gesture record first (email will be sent on /thanks page)
     await trackClick("stripe");
+
     try {
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ quantity: 1 }),
       });
+
       const { url, error } = await res.json();
+
       if (error) {
         console.error("Checkout error:", error);
         return;
       }
+
       if (url) {
         window.location.href = url;
       }
     } catch (e) {
       console.error("Failed to create checkout:", e);
     }
-    goToStep("confirmation");
   };
 
   const fontStyle = { fontFamily: "'Anonymous Pro', monospace" };
@@ -250,167 +252,249 @@ export default function Home() {
       padding: '0 24px',
     }}>
 
-      {/* EMAIL STEP */}
-      {step === "email" && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', maxWidth: 400, opacity: fadeState === 'in' ? 1 : 0, transition: 'opacity 0.5s ease' }}>
-          <p style={{ textAlign: 'left', color: '#171717', fontSize: 18, lineHeight: 1.6, marginBottom: 24, width: '100%', ...fontStyle }}>
-            <Typewriter text="Put in the email of the person you want to give a Tiny Gesture" onComplete={() => setEmailTypewriterDone(true)} speed={100} />
-          </p>
-          <div style={{ width: '100%', opacity: emailTypewriterDone ? 1 : 0, transition: 'opacity 0.5s ease' }}>
-            <input
-              type="email"
-              value={recipientEmail}
-              onChange={(e) => setRecipientEmail(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleEmailContinue()}
-              placeholder="Their email"
-              autoFocus
-              style={{ width: '100%', padding: '12px 16px', border: '1px solid #171717', backgroundColor: 'transparent', color: '#171717', fontSize: 16, outline: 'none', boxSizing: 'border-box', ...fontStyle }}
+      {/* INTRO STEP */}
+      {step === "intro" && (
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: fadeState === 'in' ? 1 : 0,
+          transition: 'opacity 0.5s ease',
+        }}>
+          <div style={{
+            width: 100,
+            height: 100,
+            animation: 'heartbeatContinuous 1.5s ease-in-out infinite',
+          }}>
+            <Image
+              src="/heart.png"
+              alt="Heart"
+              width={100}
+              height={100}
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              priority
             />
-            <button
-              onClick={handleEmailContinue}
-              disabled={!isValidEmail(recipientEmail)}
-              style={{ marginTop: 16, width: '100%', padding: '12px 16px', border: '1px solid #171717', backgroundColor: 'transparent', color: '#171717', fontSize: 16, cursor: isValidEmail(recipientEmail) ? 'pointer' : 'not-allowed', opacity: isValidEmail(recipientEmail) ? 1 : 0.3, ...fontStyle }}
-            >
-              Continue
-            </button>
           </div>
-          <SmallHeart />
+          <h1 style={{
+            marginTop: 32,
+            fontSize: 20,
+            textAlign: 'center',
+            color: '#171717',
+            ...fontStyle,
+          }}>
+            <Typewriter
+              text="A Tiny Gesture"
+              onComplete={() => setTypewriterDone(true)}
+              speed={200}
+            />
+          </h1>
         </div>
       )}
 
-      {/* NAME STEP */}
-      {step === "name" && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', maxWidth: 400, opacity: fadeState === 'in' ? 1 : 0, transition: 'opacity 0.5s ease' }}>
-          <p style={{ textAlign: 'left', color: '#171717', fontSize: 18, lineHeight: 1.6, marginBottom: 24, width: '100%', ...fontStyle }}>
-            <Typewriter text="What's your name?" onComplete={() => setNameTypewriterDone(true)} speed={100} />
+      {/* EMAIL STEP */}
+      {step === "email" && (
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '100%',
+          maxWidth: 400,
+          opacity: fadeState === 'in' ? 1 : 0,
+          transition: 'opacity 0.5s ease',
+        }}>
+          <p style={{
+            textAlign: 'left',
+            color: '#171717',
+            fontSize: 18,
+            lineHeight: 1.6,
+            marginBottom: 24,
+            width: '100%',
+            ...fontStyle,
+          }}>
+            <Typewriter
+              text="Put in the email of the person you want to give a Tiny Gesture"
+              onComplete={() => setEmailTypewriterDone(true)}
+              speed={100}
+            />
           </p>
-          <div style={{ width: '100%', opacity: nameTypewriterDone ? 1 : 0, transition: 'opacity 0.5s ease' }}>
+
+          <div style={{
+            width: '100%',
+            opacity: emailTypewriterDone ? 1 : 0,
+            transition: 'opacity 0.5s ease',
+          }}>
             <input
               type="text"
               value={senderName}
               onChange={(e) => setSenderName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleNameContinue()}
               placeholder="Your name"
               autoFocus
-              style={{ width: '100%', padding: '12px 16px', border: '1px solid #171717', backgroundColor: 'transparent', color: '#171717', fontSize: 16, outline: 'none', boxSizing: 'border-box', ...fontStyle }}
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                border: '1px solid #171717',
+                backgroundColor: 'transparent',
+                color: '#171717',
+                fontSize: 16,
+                outline: 'none',
+                boxSizing: 'border-box',
+                marginBottom: 12,
+                ...fontStyle,
+              }}
             />
-            <button
-              onClick={handleNameContinue}
-              disabled={!senderName.trim()}
-              style={{ marginTop: 16, width: '100%', padding: '12px 16px', border: '1px solid #171717', backgroundColor: 'transparent', color: '#171717', fontSize: 16, cursor: senderName.trim() ? 'pointer' : 'not-allowed', opacity: senderName.trim() ? 1 : 0.3, ...fontStyle }}
-            >
-              Continue
-            </button>
-          </div>
-          <SmallHeart />
-        </div>
-      )}
-
-      {/* PHOTO STEP */}
-      {step === "photo" && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', maxWidth: 400, opacity: fadeState === 'in' ? 1 : 0, transition: 'opacity 0.5s ease' }}>
-          <p style={{ textAlign: 'left', color: '#171717', fontSize: 18, lineHeight: 1.6, marginBottom: 24, width: '100%', ...fontStyle }}>
-            <Typewriter text="Add a photo of yourself" onComplete={() => setPhotoTypewriterDone(true)} speed={100} />
-          </p>
-          <div style={{ width: '100%', opacity: photoTypewriterDone ? 1 : 0, transition: 'opacity 0.5s ease' }}>
             <input
-              type="file"
-              accept="image/*"
-              capture="user"
-              id="photo-upload-input"
-              style={{ display: 'none' }}
-              onChange={handlePhotoChange}
+              type="email"
+              value={recipientEmail}
+              onChange={(e) => setRecipientEmail(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleEmailSubmit()}
+              placeholder="Their email"
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                border: '1px solid #171717',
+                backgroundColor: 'transparent',
+                color: '#171717',
+                fontSize: 16,
+                outline: 'none',
+                boxSizing: 'border-box',
+                ...fontStyle,
+              }}
             />
             <button
-              type="button"
-              onClick={() => document.getElementById('photo-upload-input')?.click()}
-              style={{ width: '100%', padding: '12px 16px', border: '1px solid #171717', backgroundColor: '#f3f3f3', color: '#171717', fontSize: 16, cursor: 'pointer', ...fontStyle }}
-            >
-              {senderPhoto ? 'Change Photo' : 'Choose or Take Photo'}
-            </button>
-            {senderPhoto && (
-              <Image
-                src={senderPhoto}
-                alt="Your photo"
-                width={120}
-                height={120}
-                style={{ objectFit: 'cover', borderRadius: '50%', marginTop: 16 }}
-              />
-            )}
-            <button
-              onClick={handlePhotoContinue}
-              disabled={!senderPhoto}
-              style={{ marginTop: 16, width: '100%', padding: '12px 16px', border: '1px solid #171717', backgroundColor: 'transparent', color: '#171717', fontSize: 16, cursor: senderPhoto ? 'pointer' : 'not-allowed', opacity: senderPhoto ? 1 : 0.3, ...fontStyle }}
+              onClick={handleEmailSubmit}
+              disabled={!isValidEmail(recipientEmail) || !senderName.trim()}
+              style={{
+                marginTop: 16,
+                width: '100%',
+                padding: '12px 16px',
+                border: '1px solid #171717',
+                backgroundColor: 'transparent',
+                color: '#171717',
+                fontSize: 16,
+                cursor: isValidEmail(recipientEmail) && senderName.trim() ? 'pointer' : 'not-allowed',
+                opacity: isValidEmail(recipientEmail) && senderName.trim() ? 1 : 0.3,
+                ...fontStyle,
+              }}
             >
               Continue
             </button>
           </div>
-          <SmallHeart />
-        </div>
-      )}
 
-      {/* VOICE STEP */}
-      {step === "voice" && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', maxWidth: 400, opacity: fadeState === 'in' ? 1 : 0, transition: 'opacity 0.5s ease' }}>
-          <p style={{ textAlign: 'left', color: '#171717', fontSize: 18, lineHeight: 1.6, marginBottom: 24, width: '100%', ...fontStyle }}>
-            <Typewriter text="Record a voice note (optional)" onComplete={() => setVoiceTypewriterDone(true)} speed={100} />
-          </p>
-          <div style={{ width: '100%', opacity: voiceTypewriterDone ? 1 : 0, transition: 'opacity 0.5s ease' }}>
-            {!recording && <button onClick={handleStartRecording} style={{ padding: '12px 32px', backgroundColor: '#171717', color: 'white', border: 'none', fontSize: 14, cursor: 'pointer', borderRadius: 8, fontFamily: "'Anonymous Pro', monospace" }}>Start Recording</button>}
-            {recording && <button onClick={handleStopRecording} style={{ padding: '12px 32px', backgroundColor: '#ef4444', color: 'white', border: 'none', fontSize: 14, cursor: 'pointer', borderRadius: 8, fontFamily: "'Anonymous Pro', monospace" }}>Stop Recording</button>}
-            {senderVoice && <audio src={senderVoice} controls style={{ marginTop: 16 }} />}
-            <button
-              onClick={handleVoiceContinue}
-              disabled={!senderVoice}
-              style={{ marginTop: 16, width: '100%', padding: '12px 16px', border: '1px solid #171717', backgroundColor: 'transparent', color: '#171717', fontSize: 16, cursor: senderVoice ? 'pointer' : 'not-allowed', opacity: senderVoice ? 1 : 0.3, ...fontStyle }}
-            >
-              Continue
-            </button>
-          </div>
           <SmallHeart />
         </div>
       )}
 
       {/* PAYMENT STEP */}
       {step === "payment" && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', maxWidth: 400, opacity: fadeState === 'in' ? 1 : 0, transition: 'opacity 0.5s ease' }}>
-          <p style={{ textAlign: 'center', color: '#171717', fontSize: 18, lineHeight: 1.6, marginBottom: 24, width: '100%', ...fontStyle }}>
-            <Typewriter text="It's just one euro to send a tiny gesture" onComplete={() => setPaymentTypewriterDone(true)} speed={100} showDots={false} />
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '100%',
+          maxWidth: 400,
+          opacity: fadeState === 'in' ? 1 : 0,
+          transition: 'opacity 0.5s ease',
+        }}>
+          <p style={{
+            textAlign: 'center',
+            color: '#171717',
+            fontSize: 18,
+            lineHeight: 1.6,
+            marginBottom: 24,
+            width: '100%',
+            ...fontStyle,
+          }}>
+            <Typewriter
+              text="It's just one euro to send a tiny gesture"
+              onComplete={() => setPaymentTypewriterDone(true)}
+              speed={100}
+              showDots={false}
+            />
           </p>
-          <div style={{ width: '100%', opacity: paymentTypewriterDone ? 1 : 0, transition: 'opacity 0.5s ease' }}>
-            <button onClick={handleTikkieClick} disabled={isSubmitting} style={{ width: '100%', padding: 12, marginBottom: 12, backgroundColor: '#00c853', color: 'white', fontSize: 16, border: 'none', cursor: 'pointer', ...fontStyle }}>Pay with Tikkie</button>
-            <button onClick={handleStripeClick} disabled={isSubmitting} style={{ width: '100%', padding: 12, backgroundColor: '#171717', color: 'white', fontSize: 16, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, ...fontStyle }}>
+
+          <div style={{
+            width: '100%',
+            opacity: paymentTypewriterDone ? 1 : 0,
+            transition: 'opacity 0.5s ease',
+          }}>
+            <button
+              onClick={handleTikkieClick}
+              disabled={isSubmitting}
+              style={{
+                width: '100%',
+                padding: 12,
+                marginBottom: 12,
+                backgroundColor: '#00c853',
+                color: 'white',
+                fontSize: 16,
+                border: 'none',
+                cursor: 'pointer',
+                ...fontStyle,
+              }}
+            >
+              Pay with Tikkie
+            </button>
+
+            <button
+              onClick={handleStripeClick}
+              disabled={isSubmitting}
+              style={{
+                width: '100%',
+                padding: 12,
+                backgroundColor: '#171717',
+                color: 'white',
+                fontSize: 16,
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                ...fontStyle,
+              }}
+            >
               <AppleLogo />
               <span style={{ color: '#666' }}>|</span>
               <GoogleLogo />
               <span style={{ marginLeft: 4 }}>Pay €1</span>
             </button>
           </div>
+
           <SmallHeart />
         </div>
       )}
 
       {/* CONFIRMATION STEP */}
       {step === "confirmation" && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', maxWidth: 400, opacity: fadeState === 'in' ? 1 : 0, transition: 'opacity 0.5s ease' }}>
-          <p style={{ textAlign: 'left', color: '#171717', fontSize: 18, lineHeight: 1.6, width: '100%', ...fontStyle }}>
-            <Typewriter text="A Tiny Gesture will be sent to your loved one" speed={120} />
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '100%',
+          maxWidth: 400,
+          opacity: fadeState === 'in' ? 1 : 0,
+          transition: 'opacity 0.5s ease',
+        }}>
+          <p style={{
+            textAlign: 'left',
+            color: '#171717',
+            fontSize: 18,
+            lineHeight: 1.6,
+            width: '100%',
+            ...fontStyle,
+          }}>
+            <Typewriter
+              text="A Tiny Gesture will be sent to your loved one"
+              speed={120}
+            />
           </p>
-          <button onClick={() => goToStep("preview")}
-            style={{ marginTop: 24, width: '100%', padding: '12px 16px', border: '1px solid #171717', backgroundColor: 'transparent', color: '#171717', fontSize: 16, cursor: 'pointer', ...fontStyle }}>
-            Preview your gesture
-          </button>
+
           <SmallHeart />
         </div>
-      )}
-
-      {/* PREVIEW STEP */}
-      {step === "preview" && gestureId && (
-        <iframe
-          src={`/enjoy/${gestureId}`}
-          style={{ width: '100%', maxWidth: 420, height: 700, border: 'none', borderRadius: 16, background: '#fff' }}
-          title="Preview Tiny Gesture"
-        />
       )}
     </div>
   );

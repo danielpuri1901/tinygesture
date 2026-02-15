@@ -148,23 +148,43 @@ export default function Home() {
 
   // Voice note (simple audio recorder)
   const [recording, setRecording] = useState(false);
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
-  const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
   const handleStartRecording = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const recorder = new MediaRecorder(stream);
-    setMediaRecorder(recorder);
-    setAudioChunks([]);
-    recorder.ondataavailable = (e) => setAudioChunks((chunks) => [...chunks, e.data]);
+    streamRef.current = stream;
+    // Prefer 'audio/webm' but fallback to 'audio/ogg' if not supported
+    let mimeType = '';
+    if (MediaRecorder.isTypeSupported('audio/webm')) {
+      mimeType = 'audio/webm';
+    } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
+      mimeType = 'audio/ogg';
+    }
+    const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+    mediaRecorderRef.current = recorder;
+    audioChunksRef.current = [];
+    recorder.ondataavailable = (e) => {
+      audioChunksRef.current.push(e.data);
+    };
     recorder.onstop = () => {
-      const blob = new Blob(audioChunks, { type: 'audio/webm' });
+      const blob = new Blob(audioChunksRef.current, { type: mimeType || 'audio/webm' });
       setSenderVoice(URL.createObjectURL(blob));
+      // Stop all tracks to release the mic
+      stream.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+      mediaRecorderRef.current = null;
+      audioChunksRef.current = [];
     };
     recorder.start();
     setRecording(true);
   };
+
   const handleStopRecording = () => {
-    mediaRecorder?.stop();
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
     setRecording(false);
   };
   const handleVoiceContinue = () => {
@@ -353,12 +373,16 @@ export default function Home() {
       {step === "voice" && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', maxWidth: 400, opacity: fadeState === 'in' ? 1 : 0, transition: 'opacity 0.5s ease' }}>
           <p style={{ textAlign: 'left', color: '#171717', fontSize: 18, lineHeight: 1.6, marginBottom: 24, width: '100%', ...fontStyle }}>
-            <Typewriter text="Record a voice note (optional)" onComplete={() => setVoiceTypewriterDone(true)} speed={100} />
+            <Typewriter text="Record a voice note" onComplete={() => setVoiceTypewriterDone(true)} speed={100} />
           </p>
           <div style={{ width: '100%', opacity: voiceTypewriterDone ? 1 : 0, transition: 'opacity 0.5s ease' }}>
             {!recording && <button onClick={handleStartRecording} style={{ padding: '12px 32px', backgroundColor: '#171717', color: 'white', border: 'none', fontSize: 14, cursor: 'pointer', borderRadius: 8, fontFamily: "'Anonymous Pro', monospace" }}>Start Recording</button>}
             {recording && <button onClick={handleStopRecording} style={{ padding: '12px 32px', backgroundColor: '#ef4444', color: 'white', border: 'none', fontSize: 14, cursor: 'pointer', borderRadius: 8, fontFamily: "'Anonymous Pro', monospace" }}>Stop Recording</button>}
-            {senderVoice && <audio src={senderVoice} controls style={{ marginTop: 16 }} />}
+            {senderVoice && (
+              <audio src={senderVoice} controls style={{ marginTop: 16 }}>
+                Your browser does not support the audio element.
+              </audio>
+            )}
             <button
               onClick={handleVoiceContinue}
               disabled={!senderVoice}

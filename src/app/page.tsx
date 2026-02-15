@@ -113,6 +113,7 @@ export default function Home() {
   const [paymentTypewriterDone, setPaymentTypewriterDone] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [discountCode, setDiscountCode] = useState("");
+  const [showExplanation, setShowExplanation] = useState(false);
 
   // After typewriter completes, wait then transition
   useEffect(() => {
@@ -548,8 +549,40 @@ export default function Home() {
               <AppleLogo />
               <span style={{ color: '#666' }}>|</span>
               <GoogleLogo />
-              <span style={{ marginLeft: 4 }}>{discountCode.toLowerCase() === 'odyssey' ? 'Pay €0' : 'Pay €1'}</span>
+              <span style={{ marginLeft: 4 }}>{discountCode.toLowerCase() === 'odyesee' ? 'Pay €0' : 'Pay €1'}</span>
             </button>
+
+            {/* What is a tiny gesture? */}
+            <button
+              onClick={() => setShowExplanation(!showExplanation)}
+              style={{
+                marginTop: 20,
+                background: 'none',
+                border: 'none',
+                color: '#666',
+                fontSize: 14,
+                cursor: 'pointer',
+                textDecoration: 'underline',
+                ...fontStyle,
+              }}
+            >
+              What is a tiny gesture?
+            </button>
+
+            {showExplanation && (
+              <div style={{
+                marginTop: 12,
+                padding: 16,
+                backgroundColor: '#f5f5f5',
+                borderRadius: 8,
+                textAlign: 'center',
+                ...fontStyle,
+              }}>
+                <p style={{ fontSize: 14, color: '#333', lineHeight: 1.6, margin: 0 }}>
+                  3 little 8-bit gestures that you make and send to your loved ones to make them smile. New gestures come out every month!
+                </p>
+              </div>
+            )}
           </div>
 
           <SmallHeart />

@@ -521,7 +521,7 @@ export default function EnjoyGesture() {
         if (!audioExtensionsTried.current.includes(ext)) {
           audioExtensionsTried.current.push(ext);
           // Replace extension in URL
-          const newUrl = currentUrl.replace(/\.(mp4|webm|ogg)$/, ext);
+          const newUrl: string = currentUrl.replace(/\.(mp4|webm|ogg)$/, ext);
           if (newUrl !== currentUrl) {
             console.log("Trying alternate audio URL:", newUrl);
             setAudioUrl(newUrl);

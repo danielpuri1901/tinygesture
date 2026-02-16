@@ -211,6 +211,11 @@ export default function Home() {
 
   // Handle Tikkie payment
   const handleTikkieClick = () => {
+    // Show reminder before opening Tikkie
+    const proceed = confirm("After paying with Tikkie, come back to this app to record your message!\n\nTap OK to continue to Tikkie.");
+
+    if (!proceed) return;
+
     // Open link FIRST - must be synchronous for mobile browsers
     window.open("https://tikkie.me/pay/6i4f00j4kmf5pcsh1cg3", "_blank");
 

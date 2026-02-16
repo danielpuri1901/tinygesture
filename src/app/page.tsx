@@ -549,7 +549,7 @@ export default function Home() {
               <AppleLogo />
               <span style={{ color: '#666' }}>|</span>
               <GoogleLogo />
-              <span style={{ marginLeft: 4 }}>{discountCode.toLowerCase() === 'odyesee' ? 'Pay €0' : 'Pay €1'}</span>
+              <span style={{ marginLeft: 4 }}>{discountCode.toLowerCase() === 'odyssey' ? 'Pay €0' : 'Pay €1'}</span>
             </button>
 
             {/* What is a tiny gesture? */}

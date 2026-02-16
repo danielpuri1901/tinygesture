@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     const qty = Math.min(Math.max(1, parseInt(quantity) || 1), 99);
 
     // Check for valid discount code (case-insensitive)
-    const isValidDiscount = discountCode?.toLowerCase() === "odyesee";
+    const isValidDiscount = discountCode?.toLowerCase() === "odyssey";
     const unitAmount = isValidDiscount ? 0 : 100; // €0 if valid code, €1.00 otherwise
 
     const session = await stripe.checkout.sessions.create({

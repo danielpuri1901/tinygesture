@@ -66,6 +66,9 @@ export async function POST(req: NextRequest) {
           <a href="${gestureLink}" style="display: inline-block; margin-top: 32px; padding: 14px 32px; background-color: #171717; color: white; text-decoration: none; font-size: 14px;">
             Open your Tiny Gesture
           </a>
+          <p style="font-size: 12px; color: #999; margin-top: 16px; word-break: break-all;">
+            ${gestureLink}
+          </p>
           <p style="font-size: 14px; color: #666; margin-top: 40px;">
             With love,<br/>A Tiny Gesture
           </p>

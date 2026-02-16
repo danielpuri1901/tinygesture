@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
 
     const { data, error } = await resend.emails.send({
       from: "A Tiny Gesture <hello@atinygesture.com>",
-      to: 'danielpuri1901@gmail.com',
+      to: 'nferchtandiker@gmail.com',
       subject: "Someone sent you a Tiny Gesture...",
       html: `
         <div style="font-family: 'Courier New', monospace; max-width: 400px; margin: 0 auto; text-align: center; padding: 40px 20px;">

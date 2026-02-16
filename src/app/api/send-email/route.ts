@@ -48,8 +48,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || req.nextUrl.origin;
-    const gestureLink = `${baseUrl}/enjoy/${gestureId}`;
+    const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || req.nextUrl.origin).trim();
+    const gestureLink = `${baseUrl}/enjoy/${gestureId.trim()}`;
 
     const { data, error } = await resend.emails.send({
       from: "A Tiny Gesture <hello@atinygesture.com>",

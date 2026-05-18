@@ -1,11 +1,14 @@
 # a tiny gesture
 
-> **Winner — The Odyssey Hackathon, Amsterdam 2026.**
-> 51 pre-sales before writing a single line of code. Built and launched in 29 hours. Judged on traction. ([writeup](https://www.linkedin.com/posts/danielpuri_we-won-amsterdams-the-odyssey-hackathon-share-7428919681983340544-Pahi))
+A small web app for sending a thoughtful gift on someone's behalf — the "tiny gesture" — without the friction of traditional gifting flows. Built end-to-end in a weekend.
 
 **Live:** [atinygesture.com](https://www.atinygesture.com)
 
-A small web app for sending a thoughtful gift on someone's behalf — the "tiny gesture" — without the friction of traditional gifting flows. Built end-to-end in a weekend.
+## Accomplishments
+
+- **Winner — The Odyssey Hackathon, Amsterdam 2026** ([writeup](https://www.linkedin.com/posts/danielpuri_we-won-amsterdams-the-odyssey-hackathon-share-7428919681983340544-Pahi))
+- **51 pre-sales** secured before writing a single line of code
+- Built and launched in **29 hours** — judged on traction
 
 ## Stack
 

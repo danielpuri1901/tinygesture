@@ -1,42 +1,37 @@
 # a tiny gesture
 
-A small web app for sending a thoughtful gift on someone's behalf — the "tiny gesture" — without the friction of traditional gifting flows. Built end-to-end in a weekend.
+A gift-sending web application built by our team at the Odyssey Hackathon in Amsterdam.
+We secured 51 pre-sales before writing code, then built and shipped the project in 29 hours.
+The project won the hackathon.
 
-**Live:** [atinygesture.com](https://www.atinygesture.com)
+[Hackathon announcement](https://www.linkedin.com/feed/update/urn:li:activity:7429072421695086592/)
 
-## Accomplishments
+## What we built
 
-- **Winner — The Odyssey Hackathon, Amsterdam 2026** ([writeup](https://www.linkedin.com/posts/danielpuri_we-won-amsterdams-the-odyssey-hackathon-share-7428919681983340544-Pahi))
-- **51 pre-sales** secured before writing a single line of code
-- Built and launched in **29 hours** — judged on traction
+- A flow for choosing a recipient and sending a gift.
+- A checkout and fulfillment trigger.
+- A responsive marketing page.
+- Supabase-backed authentication and storage.
 
-## Stack
-
-- **Frontend:** Next.js 15 · TypeScript · Tailwind CSS
-- **Backend:** Supabase (Postgres + auth + storage)
-- **Hosting:** Vercel
-
-## What was built in 29 hours
-
-- End-to-end gift-sending flow (recipient capture → payment → fulfilment trigger)
-- Supabase schema + auth + storage
-- Responsive marketing surface + checkout
-- Live deployment with the production URL above
+The stack uses Next.js 16 and TypeScript, with Tailwind CSS.
+Supabase provides the database and authentication.
+Stripe handles checkout and Resend handles email delivery.
 
 ## Team
 
-Hackathon team build. See the [LinkedIn writeup](https://www.linkedin.com/posts/danielpuri_we-won-amsterdams-the-odyssey-hackathon-share-7428919681983340544-Pahi) for credits.
+This was a team build.
+Daniel Puri drove the pre-sales work.
+See the announcement for team credits.
 
 ## Local development
 
 ```bash
 npm install
 npm run dev
-# open http://localhost:3000
 ```
 
-Supabase env vars are required for a fully-working build — see `src/` and `supabase/` for the schema.
+Supabase configuration is required for the application features.
+Inspect [`src/`](src/) and [`supabase/`](supabase/) before connecting a project.
 
----
-
-Maintained by [Daniel Puri](https://github.com/danielpuri1901). See [my profile](https://github.com/danielpuri1901) for other shipped work.
+The historical project URL was `https://www.atinygesture.com`.
+Current service availability is not established by this repository.
